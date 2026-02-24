@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIOS AUTO - SURABAYA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="icon" href="https://i.ibb.co.com/Y4XkDdD1/Chat-GPT-Image-Feb-24-2026-08-26-59-PM.png">
+
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, doc, addDoc, getDocs, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        const firebaseConfig = {
+            apiKey: "AIzaSyA1HHP16GCDpPNoCt0wknAyNZSBMcoD3zs",
+            authDomain: "triosautosby.firebaseapp.com",
+            projectId: "triosautosby",
+            storageBucket: "triosautosby.firebasestorage.app",
+            messagingSenderId: "589058580523",
+            appId: "1:589058580523:web:903aa5bc423832a9044a6e"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        window._firebase = { db, collection, doc, addDoc, getDocs, updateDoc, deleteDoc, serverTimestamp };
+        window._firebaseReady = true;
+
+        // ===== PIN LOGIC =====
+        let _pinValue = '';
+        let _correctPin = '1234';
+        const PIN_SESSION_KEY = 'trios_auth';
+
+        async function loadPinFromFirestore() {
+            try {
+                const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+                const pinDoc = await getDoc(doc(db, 'config', 'appPin'));
+                if (pinDoc.exists() && pinDoc.data().pin) {
+                    _correctPin = pinDoc.data().pin;
+                }
+            } catch(e) { /* fallback to default */ }
+        }
+
+        async function savePinToFirestore(newPin) {
+            const { setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+            await setDoc(doc(db, 'config', 'appPin'), { pin: newPin });
+        }
+
+        window.pinInput = function(digit) {
+            if (_pinValue.length >= 4) return;
+            _pinValue += digit;
+            updatePinDots('pin-dots', _pinValue.length);
+            if (_pinValue.length === 4) {
+                setTimeout(() => verifyPin(), 150);
+            }
+        };
+
+        window.pinDelete = function() {
+            if (_pinValue.length > 0) {
+                _pinValue = _pinValue.slice(0, -1);
+                updatePinDots('pin-dots', _pinValue.length);
+            }
+        };
+
+        function updatePinDots(containerId, count) {
+            const dots = document.querySelectorAll(`#${containerId} .pin-dot`);
+            dots.forEach((d, i) => {
+                d.classList.remove('filled', 'error');
+                if (i < count) d.classList.add('filled');
+            });
+        }
+
+        async function verifyPin() {
+            if (_pinValue === _correctPin) {
+                sessionStorage.setItem(PIN_SESSION_KEY, 'ok');
+                document.getElementById('pin-screen').classList.add('hidden');
+                document.dispatchEvent(new Event('firebase-ready'));
+            } else {
+                const dots = document.querySelectorAll('#pin-dots .pin-dot');
+                dots.forEach(d => { d.classList.remove('filled'); d.classList.add('error'); });
+                document.getElementById('pin-error-msg').innerText = 'PIN salah, coba lagi';
+                setTimeout(() => {
+                    dots.forEach(d => d.classList.remove('error'));
+                    document.getElementById('pin-error-msg').innerText = '';
+                    _pinValue = '';
+                }, 700);
+            }
+        }
+
+        // Change PIN modal logic
+        let _cpStep = 'new'; // 'new' | 'confirm'
+        let _cpNewPin = '';
+        let _cpInput = '';
+
+        window.openChangePinModal = function() {
+            _cpStep = 'new'; _cpNewPin = ''; _cpInput = '';
+            document.getElementById('cp-step-label').innerText = 'Masukkan PIN baru (4 digit)';
+            document.getElementById('cp-error-msg').innerText = '';
+            updatePinDots('cp-dots', 0);
+            document.getElementById('modal-change-pin').classList.add('open');
+        };
+
+        window.closeChangePinModal = function() {
+            document.getElementById('modal-change-pin').classList.remove('open');
+        };
+
+        window.cpInput = function(digit) {
+            if (_cpInput.length >= 4) return;
+            _cpInput += digit;
+            updatePinDots('cp-dots', _cpInput.length);
+            if (_cpInput.length === 4) {
+                setTimeout(() => processCpStep(), 150);
+            }
+        };
+
+        window.cpDelete = function() {
+            if (_cpInput.length > 0) {
+                _cpInput = _cpInput.slice(0, -1);
+                updatePinDots('cp-dots', _cpInput.length);
+            }
+        };
+
+        async function processCpStep() {
+            if (_cpStep === 'new') {
+                _cpNewPin = _cpInput;
+                _cpInput = '';
+                _cpStep = 'confirm';
+                document.getElementById('cp-step-label').innerText = 'Konfirmasi PIN baru';
+                updatePinDots('cp-dots', 0);
+            } else {
+                if (_cpInput === _cpNewPin) {
+                    try {
+                        await savePinToFirestore(_cpNewPin);
+                        _correctPin = _cpNewPin;
+                        closeChangePinModal();
+                        if(window.showToast) showToast('PIN berhasil diubah! 🔐');
+                    } catch(e) {
+                        showError('cp-dots');
+                        document.getElementById('cp-error-msg').innerText = 'Gagal menyimpan PIN';
+                        setTimeout(() => { _cpInput=''; _cpStep='new'; updatePinDots('cp-dots',0); document.getElementById('cp-step-label').innerText='Masukkan PIN baru (4 digit)'; }, 1000);
+                    }
+                } else {
+                    showError('cp-dots');
+                    document.getElementById('cp-error-msg').innerText = 'PIN tidak cocok, mulai ulang';
+                    setTimeout(() => { _cpInput=''; _cpStep='new'; _cpNewPin=''; updatePinDots('cp-dots',0); document.getElementById('cp-step-label').innerText='Masukkan PIN baru (4 digit)'; document.getElementById('cp-error-msg').innerText=''; }, 1000);
+                }
+            }
+        }
+
+        function showError(dotsId) {
+            const dots = document.querySelectorAll(`#${dotsId} .pin-dot`);
+            dots.forEach(d => { d.classList.add('error'); d.classList.remove('filled'); });
+            setTimeout(() => dots.forEach(d => d.classList.remove('error')), 600);
+        }
+
+        // Init: load PIN then check session
+        loadPinFromFirestore().then(() => {
+            if (sessionStorage.getItem(PIN_SESSION_KEY) === 'ok') {
+                document.getElementById('pin-screen').classList.add('hidden');
+                document.dispatchEvent(new Event('firebase-ready'));
+            }
+            // else: PIN screen stays visible, waiting for user input
+        });
+    </script>
+    <style>
+        * { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        :root { --navy:#0f1f3d;--blue:#1d4ed8;--blue-light:#3b82f6;--green:#059669;--red:#dc2626;--bg:#f0f4f8;--border:#e2e8f0;--text:#1e293b; }
+        body { background:var(--bg);color:var(--text); }
+        .page-section { display:none;animation:fadeIn 0.25s ease; }
+        .page-section.active { display:block; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        ::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px}
+        #sidebar{width:240px;background:var(--navy);min-height:100vh;position:fixed;left:0;top:0;display:flex;flex-direction:column;z-index:40;transition:transform 0.3s ease}
+        .nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:8px;color:#94a3b8;cursor:pointer;transition:all 0.15s;font-size:14px;font-weight:500;margin:1px 8px}
+        .nav-item:hover{background:rgba(255,255,255,0.07);color:#e2e8f0} .nav-item.active{background:var(--blue);color:white}
+        .nav-item .nav-icon{width:20px;text-align:center;font-size:14px}
+        #main-content{margin-left:240px;min-height:100vh}
+        #topbar{background:white;border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;padding:0 24px;position:sticky;top:0;z-index:30}
+        .stat-card{background:white;border-radius:12px;border:1px solid var(--border);padding:20px;transition:box-shadow 0.2s}
+        .stat-card:hover{box-shadow:0 4px 20px rgba(0,0,0,0.08)}
+        .filter-tabs{display:flex;gap:4px;background:#f1f5f9;border-radius:8px;padding:4px}
+        .filter-tab{padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;color:#64748b;border:none;background:none}
+        .filter-tab.active{background:white;color:var(--blue);box-shadow:0 1px 4px rgba(0,0,0,0.1)}
+        .badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase}
+        .badge-blue{background:#dbeafe;color:#1d4ed8} .badge-green{background:#d1fae5;color:#059669}
+        .data-table{width:100%;border-collapse:collapse}
+        .data-table th{background:#f8fafc;padding:10px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)}
+        .data-table td{padding:12px 16px;border-bottom:1px solid #f1f5f9;font-size:14px;vertical-align:middle}
+        .data-table tr:last-child td{border-bottom:none} .data-table tr:hover td{background:#fafbfc}
+        .inp{width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;transition:border 0.15s;font-family:'Plus Jakarta Sans',sans-serif}
+        .inp:focus{border-color:var(--blue-light);box-shadow:0 0 0 3px rgba(59,130,246,0.1)}
+        .inp-sm{padding:6px 10px;font-size:13px;border-radius:6px}
+        .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;border:none;outline:none}
+        .btn-primary{background:var(--blue);color:white} .btn-primary:hover{background:#1d40af}
+        .btn-success{background:var(--green);color:white} .btn-success:hover{background:#047857}
+        .btn-danger{background:var(--red);color:white} .btn-danger:hover{background:#b91c1c}
+        .btn-ghost{background:#f1f5f9;color:#475569} .btn-ghost:hover{background:#e2e8f0}
+        .btn-warn{background:#f59e0b;color:white} .btn-warn:hover{background:#d97706}
+        .btn:disabled{opacity:0.6;cursor:not-allowed} .btn-sm{padding:5px 12px;font-size:12px;border-radius:6px}
+        .veh-card{background:white;border-radius:12px;border:1px solid var(--border);overflow:hidden;transition:all 0.2s;display:flex;flex-direction:column}
+        .veh-card:hover{box-shadow:0 6px 24px rgba(0,0,0,0.1);transform:translateY(-2px)}
+        #loading-overlay{display:flex;position:fixed;inset:0;background:rgba(15,23,42,0.75);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:12px;backdrop-filter:blur(4px)}
+        #loading-overlay p{color:#e2e8f0;font-size:14px}
+        .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:50;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px)}
+        .modal-backdrop.open{display:flex}
+        .modal-box{background:white;border-radius:16px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,0.25);overflow:hidden;max-height:90vh;display:flex;flex-direction:column}
+        #toast{position:fixed;bottom:20px;right:20px;transform:translateY(80px);opacity:0;transition:all 0.3s ease;background:var(--navy);color:white;padding:12px 18px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.2);display:flex;align-items:center;gap:10px;z-index:60;font-size:14px;max-width:360px}
+        #toast.show{transform:translateY(0);opacity:1}
+        .cap-progress{height:6px;border-radius:99px;background:#e2e8f0;overflow:hidden}
+        .cap-progress-fill{height:100%;border-radius:99px;transition:width 0.5s ease}
+        #sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:39}
+        #sidebar-overlay.open{display:block}
+        .color-swatch{width:12px;height:12px;border-radius:3px;display:inline-block;flex-shrink:0}
+        @media(max-width:768px){#sidebar{transform:translateX(-100%)} #sidebar.open{transform:translateX(0)} #main-content{margin-left:0}}
+        .section-card{background:white;border-radius:12px;border:1px solid var(--border);overflow:hidden}
+        .section-header{padding:16px 20px;border-bottom:1px solid var(--border);background:#fafbfc;display:flex;align-items:center;justify-content:space-between}
+        .section-title{font-size:15px;font-weight:700;color:var(--text)}
+        #photo-preview-container{display:none} #photo-preview-container.visible{display:block}
+
+        /* ===== PIN SCREEN ===== */
+        #pin-screen{position:fixed;inset:0;background:var(--navy);z-index:200;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0;}
+        #pin-screen.hidden{display:none;}
+        .pin-logo{width:64px;height:64px;background:var(--blue);border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;overflow:hidden;}
+        .pin-logo img{width:80%;height:80%;object-fit:contain;}
+        .pin-title{font-size:22px;font-weight:800;color:white;margin-bottom:4px;}
+        .pin-subtitle{font-size:13px;color:#64748b;margin-bottom:32px;}
+        .pin-dots{display:flex;gap:14px;margin-bottom:32px;}
+        .pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid #334155;background:transparent;transition:all 0.15s;}
+        .pin-dot.filled{background:var(--blue-light);border-color:var(--blue-light);}
+        .pin-dot.error{background:#dc2626;border-color:#dc2626;animation:shake 0.3s ease;}
+        @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+        .pin-numpad{display:grid;grid-template-columns:repeat(3,72px);gap:10px;}
+        .pin-btn{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:white;font-size:20px;font-weight:700;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;}
+        .pin-btn:hover{background:rgba(255,255,255,0.12);transform:scale(1.05);}
+        .pin-btn:active{transform:scale(0.95);}
+        .pin-btn.del{font-size:16px;color:#94a3b8;}
+        .pin-btn.del:hover{background:rgba(220,38,38,0.15);color:#f87171;}
+        .pin-btn.empty{background:none;border:none;cursor:default;}
+        .pin-btn.empty:hover{background:none;transform:none;}
+        #pin-error-msg{color:#f87171;font-size:13px;height:20px;margin-top:-16px;margin-bottom:8px;text-align:center;}
+
+        /* PIN Change Modal */
+        #modal-change-pin .pin-numpad{display:grid;grid-template-columns:repeat(3,60px);gap:8px;}
+        #modal-change-pin .pin-btn{width:60px;height:60px;background:#f1f5f9;border:1px solid #e2e8f0;color:var(--text);font-size:17px;font-weight:700;border-radius:50%;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;}
+        #modal-change-pin .pin-btn:hover{background:#e2e8f0;}
+        #modal-change-pin .pin-btn.del{font-size:14px;color:#94a3b8;}
+        #modal-change-pin .pin-btn.empty{background:none;border:none;cursor:default;}
+        #modal-change-pin .pin-btn.empty:hover{background:none;}
+        #modal-change-pin .pin-dots{display:flex;gap:12px;justify-content:center;margin-bottom:20px;}
+        #modal-change-pin .pin-dot{width:12px;height:12px;border-radius:50%;border:2px solid #cbd5e1;background:transparent;transition:all 0.15s;}
+        #modal-change-pin .pin-dot.filled{background:var(--blue);border-color:var(--blue);}
+        #modal-change-pin .pin-dot.error{background:#dc2626;border-color:#dc2626;animation:shake 0.3s ease;}
+
+        /* Hoverable list rows */
+        .list-item-row{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid #f1f5f9;transition:background 0.15s}
+        .list-item-row:hover{background:#fafbff}
+        .list-item-row:last-child{border-bottom:none}
+        .item-actions{display:flex;align-items:center;gap:2px;opacity:0;transition:opacity 0.15s;flex-shrink:0}
+        .list-item-row:hover .item-actions{opacity:1}
+        .icon-btn{background:none;border:none;cursor:pointer;padding:5px 7px;border-radius:6px;font-size:12px;transition:all 0.15s;line-height:1}
+        .icon-btn-edit{color:#3b82f6} .icon-btn-edit:hover{background:#eff6ff;color:#1d4ed8}
+        .icon-btn-del{color:#ef4444} .icon-btn-del:hover{background:#fef2f2;color:#dc2626}
+
+        /* Dashboard table action buttons */
+        .dash-action-btn{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:5px;font-size:11px;transition:all 0.15s;line-height:1;opacity:0}
+        tr:hover .dash-action-btn{opacity:1}
+        .dash-action-btn.edit{color:#3b82f6} .dash-action-btn.edit:hover{background:#eff6ff}
+        .dash-action-btn.del{color:#ef4444} .dash-action-btn.del:hover{background:#fef2f2}
+
+        /* Warning box */
+        .warn-box{background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px}
+        .warn-box p{font-size:12px;color:#92400e}
+        .danger-box{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px}
+        .danger-box p{font-size:13px;color:#dc2626}
+    </style>
+</head>
+<body>
+
+<!-- ===== PIN SCREEN ===== -->
+<div id="pin-screen">
+    <div class="pin-logo">
+        <img src="https://i.ibb.co.com/Y4XkDdD1/Chat-GPT-Image-Feb-24-2026-08-26-59-PM.png" alt="Logo">
+    </div>
+    <div class="pin-title">TRIOS AUTO</div>
+    <div class="pin-subtitle">Masukkan PIN untuk melanjutkan</div>
+    <div class="pin-dots" id="pin-dots">
+        <div class="pin-dot"></div>
+        <div class="pin-dot"></div>
+        <div class="pin-dot"></div>
+        <div class="pin-dot"></div>
+    </div>
+    <div id="pin-error-msg"></div>
+    <div class="pin-numpad">
+        <button class="pin-btn" onclick="pinInput('1')">1</button>
+        <button class="pin-btn" onclick="pinInput('2')">2</button>
+        <button class="pin-btn" onclick="pinInput('3')">3</button>
+        <button class="pin-btn" onclick="pinInput('4')">4</button>
+        <button class="pin-btn" onclick="pinInput('5')">5</button>
+        <button class="pin-btn" onclick="pinInput('6')">6</button>
+        <button class="pin-btn" onclick="pinInput('7')">7</button>
+        <button class="pin-btn" onclick="pinInput('8')">8</button>
+        <button class="pin-btn" onclick="pinInput('9')">9</button>
+        <button class="pin-btn empty"></button>
+        <button class="pin-btn" onclick="pinInput('0')">0</button>
+        <button class="pin-btn del" onclick="pinDelete()"><i class="fa-solid fa-delete-left"></i></button>
+    </div>
+</div>
+
+<!-- ===== MODAL GANTI PIN ===== -->
+<div id="modal-change-pin" class="modal-backdrop">
+    <div class="modal-box" style="max-width:360px;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#fafbfc;display:flex;justify-content:space-between;align-items:center;">
+            <h3 style="font-weight:700;font-size:16px;"><i class="fa-solid fa-lock" style="margin-right:8px;color:var(--blue);"></i>Ganti PIN</h3>
+            <button onclick="closeChangePinModal()" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div style="padding:24px;text-align:center;">
+            <p id="cp-step-label" style="font-size:13px;color:#64748b;margin-bottom:16px;">Masukkan PIN baru (4 digit)</p>
+            <div class="pin-dots" id="cp-dots" style="justify-content:center;">
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+            </div>
+            <p id="cp-error-msg" style="color:#dc2626;font-size:12px;height:18px;margin-bottom:8px;"></p>
+            <div class="pin-numpad" style="margin:0 auto;width:fit-content;">
+                <button class="pin-btn" onclick="cpInput('1')">1</button>
+                <button class="pin-btn" onclick="cpInput('2')">2</button>
+                <button class="pin-btn" onclick="cpInput('3')">3</button>
+                <button class="pin-btn" onclick="cpInput('4')">4</button>
+                <button class="pin-btn" onclick="cpInput('5')">5</button>
+                <button class="pin-btn" onclick="cpInput('6')">6</button>
+                <button class="pin-btn" onclick="cpInput('7')">7</button>
+                <button class="pin-btn" onclick="cpInput('8')">8</button>
+                <button class="pin-btn" onclick="cpInput('9')">9</button>
+                <button class="pin-btn empty"></button>
+                <button class="pin-btn" onclick="cpInput('0')">0</button>
+                <button class="pin-btn del" onclick="cpDelete()"><i class="fa-solid fa-delete-left"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="loading-overlay">
+    <svg class="animate-spin h-10 w-10 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+    </svg>
+    <p id="loading-msg">Menghubungkan ke Firebase...</p>
+</div>
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<nav id="sidebar">
+    <div style="padding:20px 16px 16px;border-bottom:1px solid rgba(255,255,255,0.08);">
+    <div style="display:flex;align-items:center;gap:12px;">
+
+        <div style="width:40px;height:40px;background:var(--blue);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+            <img src="https://i.ibb.co.com/Y4XkDdD1/Chat-GPT-Image-Feb-24-2026-08-26-59-PM.png" 
+                 alt="Logo" 
+                 style="width:85%;height:85%;object-fit:contain;">
+        </div>
+
+        <div>
+            <div style="font-size:15px;font-weight:800;color:white;line-height:1.2;">TRIOS AUTO</div>
+            <div style="font-size:11px;color:#64748b;">Surabaya</div>
+        </div>
+
+    </div>
+</div>
+    <div style="padding:12px 0;flex:1;">
+        <div style="padding:6px 16px;font-size:10px;font-weight:700;color:#475569;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">Menu Utama</div>
+        <div class="nav-item active" onclick="nav('dashboard')" data-target="dashboard"><span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>Dashboard Finansial</div>
+        <div class="nav-item" onclick="nav('inventory')" data-target="inventory"><span class="nav-icon"><i class="fa-solid fa-warehouse"></i></span>Inventori Kendaraan</div>
+        <div class="nav-item" onclick="nav('sales')" data-target="sales"><span class="nav-icon"><i class="fa-solid fa-handshake"></i></span>Penjualan (Sales)</div>
+        <div style="padding:16px 16px 6px;font-size:10px;font-weight:700;color:#475569;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;margin-top:8px;">Manajemen</div>
+        <div class="nav-item" onclick="nav('capital-sources')" data-target="capital-sources"><span class="nav-icon"><i class="fa-solid fa-piggy-bank"></i></span>Sumber Modal</div>
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid rgba(255,255,255,0.06);">
+        <div onclick="openChangePinModal()" class="nav-item" style="margin:0 0 8px 0;color:#64748b;"><span class="nav-icon"><i class="fa-solid fa-lock"></i></span>Ganti PIN</div>
+        <div style="font-size:11px;color:#475569;text-align:center;">Trios Auto Surabaya</div>
+    </div>
+</nav>
+
+<div id="main-content">
+    <div id="topbar">
+        <button onclick="toggleSidebar()" id="menu-btn" style="color:#64748b;background:none;border:none;cursor:pointer;font-size:18px;margin-right:12px;display:none;"><i class="fa-solid fa-bars"></i></button>
+        <div id="page-title" style="font-size:16px;font-weight:700;color:var(--text);">Dashboard Finansial</div>
+        <div style="margin-left:auto;"><span id="topbar-date" style="font-size:12px;color:#94a3b8;"></span></div>
+    </div>
+
+    <div style="padding:24px;">
+
+        <!-- ===== DASHBOARD ===== -->
+        <section id="dashboard" class="page-section active">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
+                <h2 style="font-size:20px;font-weight:800;">Laporan Finansial & Profit</h2>
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <div class="filter-tabs">
+                        <button class="filter-tab active" onclick="setFilter('today')">Hari Ini</button>
+                        <button class="filter-tab" onclick="setFilter('month')">Bulan Ini</button>
+                        <button class="filter-tab" onclick="setFilter('year')">Tahun Ini</button>
+                        <button class="filter-tab" onclick="setFilter('custom')">Custom</button>
+                    </div>
+                    <div id="custom-range" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <input type="date" id="filter-start" class="inp inp-sm" style="width:auto;">
+                        <span style="font-size:12px;color:#94a3b8;">s/d</span>
+                        <input type="date" id="filter-end" class="inp inp-sm" style="width:auto;">
+                        <button onclick="renderDashboard()" class="btn btn-primary btn-sm"><i class="fa-solid fa-filter"></i> Terapkan</button>
+                    </div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
+                <div class="stat-card" style="border-left:4px solid #3b82f6;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Unit Terjual</p><h3 id="dash-unit" style="font-size:28px;font-weight:800;">0</h3></div><div style="width:44px;height:44px;border-radius:10px;background:#eff6ff;display:flex;align-items:center;justify-content:center;color:#3b82f6;"><i class="fa-solid fa-car"></i></div></div></div>
+                <div class="stat-card" style="border-left:4px solid #f59e0b;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Modal Induk</p><h3 id="dash-modal" style="font-size:18px;font-weight:800;">Rp 0</h3></div><div style="width:44px;height:44px;border-radius:10px;background:#fffbeb;display:flex;align-items:center;justify-content:center;color:#f59e0b;"><i class="fa-solid fa-coins"></i></div></div></div>
+                <div class="stat-card" style="border-left:4px solid #8b5cf6;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Pendapatan</p><h3 id="dash-omset" style="font-size:18px;font-weight:800;">Rp 0</h3></div><div style="width:44px;height:44px;border-radius:10px;background:#f5f3ff;display:flex;align-items:center;justify-content:center;color:#8b5cf6;"><i class="fa-solid fa-wallet"></i></div></div></div>
+                <div class="stat-card" style="border-left:4px solid #059669;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Profit Bersih</p><h3 id="dash-profit" style="font-size:18px;font-weight:800;color:#059669;">Rp 0</h3></div><div style="width:44px;height:44px;border-radius:10px;background:#ecfdf5;display:flex;align-items:center;justify-content:center;color:#059669;"><i class="fa-solid fa-chart-pie"></i></div></div></div>
+            </div>
+            <div class="section-card">
+                <div class="section-header">
+                    <span class="section-title"><i class="fa-solid fa-list-check" style="color:#3b82f6;margin-right:8px;"></i>Rincian per Kendaraan</span>
+                    <span style="font-size:12px;color:#94a3b8;"><i class="fa-solid fa-hand-pointer" style="margin-right:4px;"></i>Hover baris untuk edit/hapus</span>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="data-table" id="report-table" style="display:none;">
+                        <thead><tr>
+                            <th>Kendaraan</th><th>Tgl Terjual</th><th>Modal Awal</th>
+                            <th>Operasional</th><th>Harga Pokok</th>
+                            <th>Harga Jual</th><th style="text-align:right;">Profit</th>
+                            <th style="text-align:center;">Aksi</th>
+                        </tr></thead>
+                        <tbody id="report-table-body"></tbody>
+                    </table>
+                </div>
+                <div id="report-empty" style="padding:48px;text-align:center;color:#94a3b8;">
+                    <i class="fa-solid fa-folder-open" style="font-size:36px;margin-bottom:12px;display:block;opacity:0.4;"></i>
+                    <p style="font-size:14px;">Belum ada data penjualan pada periode ini.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== INVENTORY ===== -->
+        <section id="inventory" class="page-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+                <h2 style="font-size:20px;font-weight:800;">Inventori Kendaraan</h2>
+                <button onclick="openModal('modal-add-vehicle')" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Tambah Kendaraan</button>
+            </div>
+            <div id="inventory-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;"></div>
+            <div id="inventory-empty" class="section-card" style="padding:60px;text-align:center;display:none;">
+                <i class="fa-solid fa-car-tunnel" style="font-size:48px;color:#e2e8f0;margin-bottom:16px;display:block;"></i>
+                <h3 style="font-size:16px;font-weight:700;margin-bottom:8px;">Inventori Kosong</h3>
+                <p style="color:#94a3b8;font-size:14px;margin-bottom:16px;">Mulai dengan menambahkan kendaraan pertama Anda.</p>
+                <button onclick="openModal('modal-add-vehicle')" class="btn btn-primary">Tambah Sekarang</button>
+            </div>
+        </section>
+
+        <!-- ===== DETAIL KENDARAAN ===== -->
+        <section id="vehicle-finance" class="page-section">
+            <button onclick="nav('inventory')" style="display:inline-flex;align-items:center;gap:6px;color:#3b82f6;font-weight:600;font-size:13px;background:none;border:none;cursor:pointer;margin-bottom:20px;padding:0;"><i class="fa-solid fa-arrow-left"></i> Kembali ke Inventori</button>
+            <div class="section-card" style="margin-bottom:20px;">
+                <div style="padding:20px;display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">
+                    <img id="detail-img" src="" alt="Kendaraan" style="width:180px;height:128px;object-fit:cover;border-radius:10px;border:1px solid var(--border);flex-shrink:0;">
+                    <div style="flex:1;min-width:200px;">
+                        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                            <div><h2 id="detail-name" style="font-size:22px;font-weight:800;margin-bottom:4px;"></h2><p id="detail-specs" style="color:#64748b;font-size:14px;margin-bottom:10px;"></p><span id="detail-status" class="badge badge-blue">Tersedia</span></div>
+                            <div style="text-align:right;"><p style="font-size:12px;color:#64748b;margin-bottom:4px;">Total Investasi Berjalan</p><h3 id="detail-total-cost" style="font-size:24px;font-weight:800;color:#dc2626;">Rp 0</h3></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px;">
+                <!-- Modal Awal -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <span class="section-title"><i class="fa-solid fa-hand-holding-dollar" style="color:#f59e0b;margin-right:8px;"></i>Sumber Modal Awal</span>
+                        <span id="sum-modal" style="font-weight:700;font-size:15px;">Rp 0</span>
+                    </div>
+                    <div style="padding:16px;border-bottom:1px solid var(--border);">
+                        <form id="form-add-capital" style="display:flex;flex-direction:column;gap:8px;">
+                            <select id="cap-source" class="inp" required style="font-size:13px;"><option value="">Pilih Sumber Modal...</option></select>
+                            <div style="display:flex;gap:8px;">
+                                <input type="number" id="cap-amount" placeholder="Nominal (Rp)" class="inp" style="flex:1;font-size:13px;" required min="0">
+                                <button type="submit" id="cap-submit-btn" class="btn btn-primary btn-sm" style="white-space:nowrap;">+ Tambah</button>
+                            </div>
+                        </form>
+                    </div>
+                    <ul id="list-capital" style="max-height:320px;overflow-y:auto;list-style:none;margin:0;padding:0;"></ul>
+                </div>
+                <!-- Biaya Operasional -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <span class="section-title"><i class="fa-solid fa-wrench" style="color:#f59e0b;margin-right:8px;"></i>Biaya Operasional</span>
+                        <span id="sum-ops" style="font-weight:700;font-size:15px;">Rp 0</span>
+                    </div>
+                    <div style="padding:16px;border-bottom:1px solid var(--border);">
+                        <form id="form-add-ops" style="display:flex;flex-direction:column;gap:8px;">
+                            <div style="display:flex;gap:8px;">
+                                <input type="date" id="ops-date" class="inp" style="flex:1;font-size:13px;" required>
+                                <input type="text" id="ops-desc" placeholder="Keterangan" class="inp" style="flex:2;font-size:13px;" required>
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                <input type="number" id="ops-amount" placeholder="Nominal (Rp)" class="inp" style="flex:1;font-size:13px;" required min="0">
+                                <button type="submit" id="ops-submit-btn" class="btn btn-sm" style="background:#f59e0b;color:white;white-space:nowrap;">+ Tambah</button>
+                            </div>
+                        </form>
+                    </div>
+                    <ul id="list-ops" style="max-height:320px;overflow-y:auto;list-style:none;margin:0;padding:0;"></ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== SALES ===== -->
+        <section id="sales" class="page-section">
+            <div style="margin-bottom:24px;"><h2 style="font-size:20px;font-weight:800;margin-bottom:4px;">Panel Penjualan</h2><p style="color:#64748b;font-size:14px;">Pilih kendaraan tersedia untuk mencatat transaksi penjualan.</p></div>
+            <div id="sales-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;"></div>
+            <div id="sales-empty" class="section-card" style="padding:60px;text-align:center;display:none;"><i class="fa-solid fa-check-double" style="font-size:48px;color:#e2e8f0;margin-bottom:16px;display:block;"></i><h3 style="font-size:16px;font-weight:700;margin-bottom:8px;">Tidak Ada Kendaraan Tersedia</h3><p style="color:#94a3b8;font-size:14px;">Semua inventori telah terjual atau inventori kosong.</p></div>
+        </section>
+
+        <!-- ===== SUMBER MODAL ===== -->
+        <section id="capital-sources" class="page-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+                <div><h2 style="font-size:20px;font-weight:800;margin-bottom:4px;">Manajemen Sumber Modal</h2><p style="color:#64748b;font-size:14px;">Kelola daftar sumber modal yang tersedia.</p></div>
+                <button onclick="openModal('modal-add-source')" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Tambah Sumber</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
+                <div class="stat-card" style="border-left:4px solid #3b82f6;"><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Sumber Modal</p><h3 id="cs-total-sources" style="font-size:28px;font-weight:800;">0</h3></div>
+                <div class="stat-card" style="border-left:4px solid #f59e0b;"><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Modal Disetor (All Time)</p><h3 id="cs-total-amount" style="font-size:20px;font-weight:800;">Rp 0</h3></div>
+                <div class="stat-card" style="border-left:4px solid #8b5cf6;"><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Kontribusi Terbesar</p><h3 id="cs-top-source" style="font-size:16px;font-weight:800;">-</h3></div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px;">
+                <div class="section-card">
+                    <div class="section-header"><span class="section-title"><i class="fa-solid fa-list" style="color:#3b82f6;margin-right:8px;"></i>Daftar Sumber Modal</span></div>
+                    <div id="sources-list" style="padding:16px;display:flex;flex-direction:column;gap:10px;min-height:200px;"></div>
+                    <div id="sources-empty" style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;display:none;">Belum ada sumber modal.</div>
+                </div>
+                <div class="section-card">
+                    <div class="section-header"><span class="section-title"><i class="fa-solid fa-chart-bar" style="color:#8b5cf6;margin-right:8px;"></i>Distribusi Modal per Sumber</span></div>
+                    <div id="sources-breakdown" style="padding:20px;display:flex;flex-direction:column;gap:14px;"></div>
+                    <div id="sources-breakdown-empty" style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;display:none;">Belum ada data modal tercatat.</div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!--  MODALS -->
+<!-- ============================================================ -->
+
+<!-- Tambah Kendaraan -->
+<div id="modal-add-vehicle" class="modal-backdrop">
+    <div class="modal-box" style="max-width:520px;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#fafbfc;display:flex;justify-content:space-between;align-items:center;"><h3 style="font-weight:700;font-size:16px;">Input Data Kendaraan Baru</h3><button onclick="closeModal('modal-add-vehicle')" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;"><i class="fa-solid fa-xmark"></i></button></div>
+        <div style="padding:20px;overflow-y:auto;">
+            <form id="form-add-vehicle" style="display:flex;flex-direction:column;gap:14px;">
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Masuk</label><input type="date" id="veh-date" class="inp" required></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nama Kendaraan Lengkap</label><input type="text" id="veh-name" placeholder="Toyota Avanza 1.5 G MT" class="inp" required></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Merek</label><input type="text" id="veh-brand" placeholder="Toyota" class="inp" required></div>
+                    <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tahun</label><input type="number" id="veh-year" placeholder="2020" class="inp" required></div>
+                </div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Plat Nomor</label><input type="text" id="veh-plate" placeholder="B 1234 ABC" class="inp" required></div>
+                <div>
+                    <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Foto Kendaraan</label>
+                    <div onclick="document.getElementById('veh-photo-file').click()" style="border:2px dashed #e2e8f0;border-radius:10px;padding:20px;text-align:center;cursor:pointer;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='#e2e8f0'">
+                        <i class="fa-solid fa-image" style="font-size:28px;color:#cbd5e1;margin-bottom:8px;display:block;"></i>
+                        <p style="font-size:13px;color:#64748b;">Klik untuk pilih foto</p><p style="font-size:11px;color:#94a3b8;margin-top:2px;">JPG, PNG, WEBP · Maks 5MB</p>
+                        <input type="file" id="veh-photo-file" accept="image/*" style="display:none;" onchange="previewPhoto(event)">
+                    </div>
+                    <div id="photo-preview-container" style="margin-top:10px;position:relative;">
+                        <img id="photo-preview-img" src="" alt="Preview" style="width:100%;height:140px;object-fit:cover;border-radius:8px;border:1px solid var(--border);">
+                        <button type="button" onclick="clearPhoto()" style="position:absolute;top:8px;right:8px;background:#dc2626;border:none;color:white;border-radius:50%;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <details style="margin-top:8px;"><summary style="font-size:12px;color:#94a3b8;cursor:pointer;">Atau gunakan URL foto dari internet</summary><input type="url" id="veh-photo-url" placeholder="https://link-gambar.com/foto.jpg" class="inp" style="margin-top:8px;font-size:13px;"></details>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border);"><button type="button" onclick="closeModal('modal-add-vehicle')" class="btn btn-ghost">Batal</button><button type="submit" id="veh-submit-btn" class="btn btn-primary">Simpan Kendaraan</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Jual Kendaraan -->
+<div id="modal-sell-vehicle" class="modal-backdrop">
+    <div class="modal-box" style="max-width:440px;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#f0fdf4;display:flex;justify-content:space-between;align-items:center;"><h3 style="font-weight:700;font-size:16px;color:#14532d;"><i class="fa-solid fa-handshake" style="margin-right:8px;"></i>Catat Penjualan</h3><button onclick="closeModal('modal-sell-vehicle')" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;"><i class="fa-solid fa-xmark"></i></button></div>
+        <div style="padding:20px;">
+            <div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;"><p style="font-size:11px;color:#64748b;margin-bottom:4px;">Kendaraan:</p><p id="sell-veh-name" style="font-weight:700;font-size:15px;margin-bottom:6px;"></p><p style="font-size:12px;color:#dc2626;">Total Modal: <span id="sell-veh-cost" style="font-weight:700;">Rp 0</span></p></div>
+            <form id="form-sell-vehicle" style="display:flex;flex-direction:column;gap:14px;">
+                <input type="hidden" id="sell-veh-id">
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Terjual</label><input type="date" id="sell-date" class="inp" required></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nama Pembeli</label><input type="text" id="sell-buyer" placeholder="Nama pelanggan" class="inp" required></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Harga Jual (Rp)</label><input type="number" id="sell-price" placeholder="Contoh: 150000000" class="inp" style="font-size:18px;font-weight:700;color:#059669;" required min="0"></div>
+                <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border);"><button type="button" onclick="closeModal('modal-sell-vehicle')" class="btn btn-ghost">Batal</button><button type="submit" id="sell-submit-btn" class="btn btn-success">Konfirmasi Terjual</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Hapus Kendaraan -->
+<div id="modal-delete-vehicle" class="modal-backdrop">
+    <div class="modal-box" style="max-width:400px;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#fef2f2;display:flex;justify-content:space-between;align-items:center;"><h3 style="font-weight:700;font-size:16px;color:#7f1d1d;"><i class="fa-solid fa-trash" style="margin-right:8px;"></i>Hapus Kendaraan</h3><button onclick="closeModal('modal-delete-vehicle')" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;"><i class="fa-solid fa-xmark"></i></button></div>
+        <div style="padding:20px;">
+            <div class="danger-box" style="margin-bottom:16px;"><p style="font-weight:600;margin-bottom:4px;">⚠️ Perhatian!</p><p>Semua data terkait (modal, operasional, penjualan) akan dihapus secara permanen.</p></div>
+            <p style="font-size:14px;color:#374151;margin-bottom:16px;">Yakin ingin menghapus: <strong id="delete-veh-name"></strong>?</p>
+            <input type="hidden" id="delete-veh-id">
+            <div style="display:flex;justify-content:flex-end;gap:10px;"><button onclick="closeModal('modal-delete-vehicle')" class="btn btn-ghost">Batal</button><button onclick="confirmDeleteVehicle()" id="delete-confirm-btn" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Hapus Permanen</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- Tambah Sumber Modal -->
+<div id="modal-add-source" class="modal-backdrop">
+    <div class="modal-box" style="max-width:400px;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#fafbfc;display:flex;justify-content:space-between;align-items:center;"><h3 style="font-weight:700;font-size:16px;">Tambah Sumber Modal</h3><button onclick="closeModal('modal-add-source')" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;"><i class="fa-solid fa-xmark"></i></button></div>
+        <div style="padding:20px;">
+            <form id="form-add-source" style="display:flex;flex-direction:column;gap:14px;">
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nama Sumber Modal</label><input type="text" id="source-name" placeholder="Contoh: Investor Utama, Kas Internal" class="inp" required></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Keterangan (opsional)</label><input type="text" id="source-desc" placeholder="Catatan tambahan..." class="inp"></div>
+                <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border);"><button type="button" onclick="closeModal('modal-add-source')" class="btn btn-ghost">Batal</button><button type="submit" id="source-submit-btn" class="btn btn-primary">Simpan Sumber</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Hapus Sumber Modal -->
+<div id="modal-delete-source" class="modal-backdrop">
+    <div class="modal-box" style="max-width:380px;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#fef2f2;"><h3 style="font-weight:700;font-size:16px;color:#7f1d1d;">Hapus Sumber Modal</h3></div>
+        <div style="padding:20px;"><p style="font-size:14px;color:#374151;margin-bottom:16px;">Yakin hapus: <strong id="delete-source-name"></strong>?</p><input type="hidden" id="delete-source-id"><div style="display:flex;justify-content:flex-end;gap:10px;"><button onclick="closeModal('modal-delete-source')" class="btn btn-ghost">Batal</button><button onclick="confirmDeleteSource()" id="delete-source-btn" class="btn btn-danger">Hapus</button></div></div>
+    </div>
+</div>
+
+<!-- Edit Modal Awal -->
+<div id="modal-edit-capital" class="modal-backdrop">
+    <div class="modal-box" style="max-width:420px;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#eff6ff;display:flex;justify-content:space-between;align-items:center;"><h3 style="font-weight:700;font-size:16px;color:#1e40af;"><i class="fa-solid fa-pen-to-square" style="margin-right:8px;"></i>Edit Modal Awal</h3><button onclick="closeModal('modal-edit-capital')" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;"><i class="fa-solid fa-xmark"></i></button></div>
+        <div style="padding:20px;">
+            <form id="form-edit-capital" style="display:flex;flex-direction:column;gap:14px;">
+                <input type="hidden" id="edit-cap-id">
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Sumber Modal</label><select id="edit-cap-source" class="inp" required style="font-size:13px;"><option value="">Pilih...</option></select></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nominal (Rp)</label><input type="number" id="edit-cap-amount" class="inp" style="font-size:16px;font-weight:700;" required min="0"></div>
+                <div class="warn-box"><p><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Perubahan akan langsung memperbarui total modal kendaraan ini.</p></div>
+                <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border);"><button type="button" onclick="closeModal('modal-edit-capital')" class="btn btn-ghost">Batal</button><button type="submit" id="edit-cap-submit-btn" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Simpan</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Hapus Modal Awal -->
+<div id="modal-delete-capital" class="modal-backdrop">
+    <div class="modal-box" style="max-width:380px;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#fef2f2;display:flex;justify-content:space-between;align-items:center;"><h3 style="font-weight:700;font-size:16px;color:#7f1d1d;"><i class="fa-solid fa-trash" style="margin-right:8px;"></i>Hapus Modal Awal</h3><button onclick="closeModal('modal-delete-capital')" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;"><i class="fa-solid fa-xmark"></i></button></div>
+        <div style="padding:20px;">
+            <div class="danger-box" style="margin-bottom:14px;"><p>Data modal ini akan dihapus permanen.</p></div>
+            <p style="font-size:14px;margin-bottom:4px;">Sumber: <strong id="del-cap-source"></strong></p>
+            <p style="font-size:14px;margin-bottom:16px;">Nominal: <strong id="del-cap-amount" style="color:#dc2626;"></strong></p>
+            <input type="hidden" id="del-cap-id">
+            <div style="display:flex;justify-content:flex-end;gap:10px;"><button onclick="closeModal('modal-delete-capital')" class="btn btn-ghost">Batal</button><button onclick="confirmDeleteCapital()" id="del-cap-btn" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Hapus</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Operasional -->
+<div id="modal-edit-ops" class="modal-backdrop">
+    <div class="modal-box" style="max-width:420px;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#fffbeb;display:flex;justify-content:space-between;align-items:center;"><h3 style="font-weight:700;font-size:16px;color:#92400e;"><i class="fa-solid fa-pen-to-square" style="margin-right:8px;"></i>Edit Biaya Operasional</h3><button onclick="closeModal('modal-edit-ops')" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;"><i class="fa-solid fa-xmark"></i></button></div>
+        <div style="padding:20px;">
+            <form id="form-edit-ops" style="display:flex;flex-direction:column;gap:14px;">
+                <input type="hidden" id="edit-ops-id">
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal</label><input type="date" id="edit-ops-date" class="inp" required></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Keterangan</label><input type="text" id="edit-ops-desc" class="inp" required></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nominal (Rp)</label><input type="number" id="edit-ops-amount" class="inp" style="font-size:16px;font-weight:700;" required min="0"></div>
+                <div class="warn-box"><p><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Perubahan akan langsung memperbarui total modal kendaraan ini.</p></div>
+                <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border);"><button type="button" onclick="closeModal('modal-edit-ops')" class="btn btn-ghost">Batal</button><button type="submit" id="edit-ops-submit-btn" class="btn btn-warn"><i class="fa-solid fa-floppy-disk"></i> Simpan</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Hapus Operasional -->
+<div id="modal-delete-ops" class="modal-backdrop">
+    <div class="modal-box" style="max-width:380px;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#fef2f2;display:flex;justify-content:space-between;align-items:center;"><h3 style="font-weight:700;font-size:16px;color:#7f1d1d;"><i class="fa-solid fa-trash" style="margin-right:8px;"></i>Hapus Biaya Operasional</h3><button onclick="closeModal('modal-delete-ops')" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;"><i class="fa-solid fa-xmark"></i></button></div>
+        <div style="padding:20px;">
+            <div class="danger-box" style="margin-bottom:14px;"><p>Data biaya operasional ini akan dihapus permanen.</p></div>
+            <p style="font-size:14px;margin-bottom:4px;">Keterangan: <strong id="del-ops-desc"></strong></p>
+            <p style="font-size:14px;margin-bottom:16px;">Nominal: <strong id="del-ops-amount" style="color:#dc2626;"></strong></p>
+            <input type="hidden" id="del-ops-id">
+            <div style="display:flex;justify-content:flex-end;gap:10px;"><button onclick="closeModal('modal-delete-ops')" class="btn btn-ghost">Batal</button><button onclick="confirmDeleteOps()" id="del-ops-btn" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Hapus</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ EDIT Harga Jual (Dashboard) -->
+<div id="modal-edit-sale" class="modal-backdrop">
+    <div class="modal-box" style="max-width:440px;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#f0fdf4;display:flex;justify-content:space-between;align-items:center;">
+            <h3 style="font-weight:700;font-size:16px;color:#14532d;"><i class="fa-solid fa-pen-to-square" style="margin-right:8px;"></i>Edit Data Penjualan</h3>
+            <button onclick="closeModal('modal-edit-sale')" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div style="padding:20px;">
+            <div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:16px;">
+                <p style="font-size:11px;color:#64748b;margin-bottom:2px;">Kendaraan:</p>
+                <p id="edit-sale-veh-name" style="font-weight:700;font-size:14px;"></p>
+            </div>
+            <form id="form-edit-sale" style="display:flex;flex-direction:column;gap:14px;">
+                <input type="hidden" id="edit-sale-id">
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Terjual</label><input type="date" id="edit-sale-date" class="inp" required></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nama Pembeli</label><input type="text" id="edit-sale-buyer" class="inp" required></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Harga Jual (Rp)</label><input type="number" id="edit-sale-price" class="inp" style="font-size:18px;font-weight:700;color:#059669;" required min="0"></div>
+                <div class="warn-box"><p><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Perubahan harga jual akan langsung mempengaruhi perhitungan profit.</p></div>
+                <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border);"><button type="button" onclick="closeModal('modal-edit-sale')" class="btn btn-ghost">Batal</button><button type="submit" id="edit-sale-submit-btn" class="btn btn-success"><i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ BATALKAN Penjualan / Rollback (Dashboard) -->
+<div id="modal-cancel-sale" class="modal-backdrop">
+    <div class="modal-box" style="max-width:440px;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#fef2f2;display:flex;justify-content:space-between;align-items:center;">
+            <h3 style="font-weight:700;font-size:16px;color:#7f1d1d;"><i class="fa-solid fa-rotate-left" style="margin-right:8px;"></i>Batalkan Penjualan</h3>
+            <button onclick="closeModal('modal-cancel-sale')" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div style="padding:20px;">
+            <div class="danger-box" style="margin-bottom:16px;">
+                <p style="font-weight:700;margin-bottom:6px;">⚠️ Apa yang akan terjadi?</p>
+                <p>• Data penjualan akan <strong>dihapus permanen</strong></p>
+                <p style="margin-top:4px;">• Status kendaraan akan <strong>dikembalikan ke "Tersedia"</strong></p>
+                <p style="margin-top:4px;">• Modal & biaya operasional tetap tersimpan</p>
+            </div>
+            <div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;">
+                <p style="font-size:12px;color:#64748b;margin-bottom:4px;">Kendaraan:</p>
+                <p id="cancel-sale-veh-name" style="font-weight:700;font-size:15px;margin-bottom:4px;"></p>
+                <p style="font-size:13px;color:#64748b;">Harga jual: <span id="cancel-sale-price" style="font-weight:700;color:#059669;"></span></p>
+                <p style="font-size:13px;color:#64748b;">Pembeli: <span id="cancel-sale-buyer" style="font-weight:600;"></span></p>
+            </div>
+            <input type="hidden" id="cancel-sale-id">
+            <input type="hidden" id="cancel-sale-veh-id">
+            <div style="display:flex;justify-content:flex-end;gap:10px;">
+                <button onclick="closeModal('modal-cancel-sale')" class="btn btn-ghost">Tutup</button>
+                <button onclick="confirmCancelSale()" id="cancel-sale-confirm-btn" class="btn btn-danger"><i class="fa-solid fa-rotate-left"></i> Ya, Batalkan Penjualan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast"><i id="toast-icon" class="fa-solid fa-circle-check" style="color:#34d399;"></i><span id="toast-msg">Notifikasi</span></div>
+
+<script>
+let vehicles=[],capitals=[],operations=[],sales=[],capitalSources=[];
+let currentVehicleId=null,photoBase64=null,currentFilter='month';
+
+const DEFAULT_SOURCES=['Investor Utama','Mitra 1','Mitra 2','Kas Internal','Pinjaman Bank'];
+const SOURCE_COLORS=['#3b82f6','#8b5cf6','#059669','#f59e0b','#ef4444','#06b6d4','#ec4899','#84cc16'];
+const DEFAULT_IMG='https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=500&q=60';
+
+function FB(){return window._firebase;}
+const C=(name)=>FB().collection(FB().db,name);
+
+async function loadAllData(){
+    setLoading('Memuat data...');
+    try{
+        const[vS,cS,oS,sS,csS]=await Promise.all([
+            FB().getDocs(C('vehicles')),FB().getDocs(C('capitals')),
+            FB().getDocs(C('operations')),FB().getDocs(C('sales')),FB().getDocs(C('capitalSources'))
+        ]);
+        vehicles=vS.docs.map(d=>({id:d.id,...d.data()}));
+        capitals=cS.docs.map(d=>({id:d.id,...d.data()}));
+        operations=oS.docs.map(d=>({id:d.id,...d.data()}));
+        sales=sS.docs.map(d=>({id:d.id,...d.data()}));
+        capitalSources=csS.docs.map(d=>({id:d.id,...d.data()}));
+        if(capitalSources.length===0){
+            for(let i=0;i<DEFAULT_SOURCES.length;i++){
+                const ref=await FB().addDoc(C('capitalSources'),{name:DEFAULT_SOURCES[i],desc:'',color:SOURCE_COLORS[i],createdAt:FB().serverTimestamp()});
+                capitalSources.push({id:ref.id,name:DEFAULT_SOURCES[i],desc:'',color:SOURCE_COLORS[i]});
+            }
+        }
+        hideLoading();
+    }catch(e){hideLoading();showToast('Gagal memuat data: '+e.message,'error');console.error(e);}
+}
+
+const formatRp=n=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(n||0);
+const formatDate=s=>{if(!s)return'-';return new Date(s+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});};
+
+function showToast(msg,type='success'){
+    const t=document.getElementById('toast'),ic=document.getElementById('toast-icon');
+    document.getElementById('toast-msg').innerText=msg;
+    ic.className='fa-solid '+(type==='success'?'fa-circle-check':'fa-triangle-exclamation');
+    ic.style.color=type==='success'?'#34d399':'#f87171';
+    t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);
+}
+function setLoading(msg){document.getElementById('loading-msg').innerText=msg;document.getElementById('loading-overlay').style.display='flex';}
+function hideLoading(){document.getElementById('loading-overlay').style.display='none';}
+function setBtnLoading(id,on){
+    const b=document.getElementById(id);if(!b)return;
+    if(on){b.disabled=true;b.dataset.orig=b.innerHTML;b.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...';}
+    else{b.disabled=false;b.innerHTML=b.dataset.orig||'';}
+}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebar-overlay').classList.toggle('open');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebar-overlay').classList.remove('open');}
+
+function nav(pageId){
+    document.querySelectorAll('.page-section').forEach(s=>s.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.target===pageId));
+    const titles={dashboard:'Dashboard Finansial',inventory:'Inventori Kendaraan',sales:'Penjualan','vehicle-finance':'Detail Kendaraan','capital-sources':'Sumber Modal'};
+    document.getElementById('page-title').innerText=titles[pageId]||'';
+    closeSidebar();
+    if(pageId==='inventory')renderInventory();
+    if(pageId==='sales')renderSales();
+    if(pageId==='dashboard')renderDashboard();
+    if(pageId==='capital-sources')renderCapitalSources();
+}
+
+function getVehicleFinance(vehicleId){
+    const caps=capitals.filter(c=>c.vehicleId===vehicleId);
+    const ops=operations.filter(o=>o.vehicleId===vehicleId);
+    const sale=sales.find(s=>s.vehicleId===vehicleId);
+    const totalCapital=caps.reduce((s,i)=>s+(Number(i.amount)||0),0);
+    const totalOps=ops.reduce((s,i)=>s+(Number(i.amount)||0),0);
+    const totalCost=totalCapital+totalOps;
+    const profit=sale?(Number(sale.price)||0)-totalCost:0;
+    return{totalCapital,totalOps,totalCost,salePrice:Number(sale?.price)||0,profit,isSold:!!sale,sale};
+}
+
+function previewPhoto(event){
+    const file=event.target.files[0];if(!file)return;
+    if(file.size>5*1024*1024){showToast('Ukuran foto melebihi 5MB!','error');return;}
+    const reader=new FileReader();
+    reader.onload=e=>{photoBase64=e.target.result;document.getElementById('photo-preview-img').src=photoBase64;document.getElementById('photo-preview-container').classList.add('visible');document.getElementById('veh-photo-url').value='';};
+    reader.readAsDataURL(file);
+}
+function clearPhoto(){photoBase64=null;document.getElementById('veh-photo-file').value='';document.getElementById('photo-preview-img').src='';document.getElementById('photo-preview-container').classList.remove('visible');}
+
+// ===== INVENTORY =====
+function renderInventory(){
+    const grid=document.getElementById('inventory-grid'),empty=document.getElementById('inventory-empty');
+    grid.innerHTML='';
+    if(vehicles.length===0){grid.style.display='none';empty.style.display='block';return;}
+    grid.style.display='grid';empty.style.display='none';
+    [...vehicles].sort((a,b)=>new Date(b.dateAdded)-new Date(a.dateAdded)).forEach(v=>{
+        const fin=getVehicleFinance(v.id),isSold=v.status==='terjual';
+        const badge=isSold?`<span class="badge badge-green"><i class="fa-solid fa-check" style="margin-right:4px;"></i>TERJUAL</span>`:`<span class="badge badge-blue">TERSEDIA</span>`;
+        grid.insertAdjacentHTML('beforeend',`<div class="veh-card"><div style="position:relative;height:180px;background:#f1f5f9;flex-shrink:0;"><img src="${v.photo||DEFAULT_IMG}" alt="${v.name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.src='${DEFAULT_IMG}'"><div style="position:absolute;top:10px;right:10px;">${badge}</div></div><div style="padding:16px;flex:1;display:flex;flex-direction:column;"><h3 style="font-weight:700;font-size:16px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${v.name}">${v.name}</h3><p style="font-size:12px;color:#64748b;margin-bottom:10px;"><i class="fa-solid fa-calendar" style="margin-right:4px;"></i>Masuk: ${formatDate(v.dateAdded)}</p><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"><span style="font-size:11px;background:#f1f5f9;color:#475569;padding:3px 8px;border-radius:4px;border:1px solid #e2e8f0;">${v.brand}</span><span style="font-size:11px;background:#f1f5f9;color:#475569;padding:3px 8px;border-radius:4px;border:1px solid #e2e8f0;">${v.year}</span><span style="font-size:11px;background:#f1f5f9;color:#475569;padding:3px 8px;border-radius:4px;border:1px solid #e2e8f0;" class="mono">${v.plate}</span></div><div style="margin-top:auto;border-top:1px solid #f1f5f9;padding-top:12px;"><p style="font-size:11px;color:#64748b;margin-bottom:2px;">Total Modal Induk</p><p style="font-weight:800;color:#dc2626;font-size:15px;margin-bottom:10px;">${formatRp(fin.totalCost)}</p><div style="display:flex;gap:8px;"><button onclick="openVehicleFinance('${v.id}')" class="btn btn-primary btn-sm" style="flex:1;justify-content:center;"><i class="fa-solid fa-pen-to-square"></i> Rincian</button><button onclick="openDeleteModal('${v.id}','${v.name.replace(/'/g,"&#39;")}')" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;flex-shrink:0;"><i class="fa-solid fa-trash-can"></i></button></div></div></div></div>`);
+    });
+}
+
+document.getElementById('form-add-vehicle').addEventListener('submit',async function(e){
+    e.preventDefault();setBtnLoading('veh-submit-btn',true);
+    try{
+        const photoVal=photoBase64||document.getElementById('veh-photo-url').value||'';
+        const newVeh={dateAdded:document.getElementById('veh-date').value,name:document.getElementById('veh-name').value.trim(),brand:document.getElementById('veh-brand').value.trim(),year:document.getElementById('veh-year').value,plate:document.getElementById('veh-plate').value.trim(),photo:photoVal,status:'tersedia',createdAt:FB().serverTimestamp()};
+        const docRef=await FB().addDoc(C('vehicles'),newVeh);
+        vehicles.push({id:docRef.id,...newVeh,createdAt:new Date()});
+        this.reset();clearPhoto();document.getElementById('veh-date').valueAsDate=new Date();
+        closeModal('modal-add-vehicle');showToast('Kendaraan berhasil ditambahkan!');renderInventory();
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('veh-submit-btn',false);
+});
+
+function openDeleteModal(id,name){document.getElementById('delete-veh-id').value=id;document.getElementById('delete-veh-name').innerText=name;openModal('modal-delete-vehicle');}
+
+async function confirmDeleteVehicle(){
+    const id=document.getElementById('delete-veh-id').value;setBtnLoading('delete-confirm-btn',true);
+    try{
+        await FB().deleteDoc(FB().doc(FB().db,'vehicles',id));
+        for(const c of capitals.filter(c=>c.vehicleId===id))await FB().deleteDoc(FB().doc(FB().db,'capitals',c.id));
+        for(const o of operations.filter(o=>o.vehicleId===id))await FB().deleteDoc(FB().doc(FB().db,'operations',o.id));
+        for(const s of sales.filter(s=>s.vehicleId===id))await FB().deleteDoc(FB().doc(FB().db,'sales',s.id));
+        vehicles=vehicles.filter(v=>v.id!==id);capitals=capitals.filter(c=>c.vehicleId!==id);
+        operations=operations.filter(o=>o.vehicleId!==id);sales=sales.filter(s=>s.vehicleId!==id);
+        closeModal('modal-delete-vehicle');showToast('Kendaraan berhasil dihapus!');renderInventory();
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('delete-confirm-btn',false);
+}
+
+// ===== VEHICLE FINANCE =====
+function openVehicleFinance(id){
+    currentVehicleId=id;
+    const v=vehicles.find(v=>v.id===id);if(!v)return;
+    document.getElementById('detail-img').src=v.photo||DEFAULT_IMG;
+    document.getElementById('detail-img').onerror=()=>document.getElementById('detail-img').src=DEFAULT_IMG;
+    document.getElementById('detail-name').innerText=v.name;
+    document.getElementById('detail-specs').innerHTML=`<i class="fa-solid fa-tag" style="margin-right:4px;"></i>${v.brand} • ${v.year} • <span class="mono">${v.plate}</span>`;
+    const isSold=v.status==='terjual';
+    const badge=document.getElementById('detail-status');
+    badge.className='badge '+(isSold?'badge-green':'badge-blue');
+    badge.innerHTML=isSold?'<i class="fa-solid fa-check" style="margin-right:4px;"></i>Terjual':'Tersedia';
+    document.getElementById('cap-submit-btn').disabled=isSold;
+    document.getElementById('ops-submit-btn').disabled=isSold;
+    document.getElementById('ops-date').valueAsDate=new Date();
+    populateCapSourceDropdown('cap-source');refreshFinanceLists();nav('vehicle-finance');
+}
+
+function populateCapSourceDropdown(selId){
+    const sel=document.getElementById(selId);
+    sel.innerHTML='<option value="">Pilih Sumber Modal...</option>';
+    capitalSources.forEach(s=>sel.insertAdjacentHTML('beforeend',`<option value="${s.name}">${s.name}</option>`));
+}
+
+function refreshFinanceLists(){
+    const fin=getVehicleFinance(currentVehicleId);
+    document.getElementById('detail-total-cost').innerText=formatRp(fin.totalCost);
+    document.getElementById('sum-modal').innerText=formatRp(fin.totalCapital);
+    document.getElementById('sum-ops').innerText=formatRp(fin.totalOps);
+    const isSold=vehicles.find(v=>v.id===currentVehicleId)?.status==='terjual';
+
+    // CAPITAL LIST
+    const listCap=document.getElementById('list-capital');
+    const caps=capitals.filter(c=>c.vehicleId===currentVehicleId);
+    listCap.innerHTML=caps.length===0?'<li style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic;">Belum ada modal tercatat.</li>':'';
+    caps.forEach(c=>{
+        const src=capitalSources.find(s=>s.name===c.source),color=src?.color||'#64748b';
+        const li=document.createElement('li');li.className='list-item-row';
+        li.innerHTML=`
+            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+                <span class="color-swatch" style="background:${color};flex-shrink:0;"></span>
+                <div style="min-width:0;">
+                    <p style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.source}</p>
+                    <p style="font-size:11px;color:#94a3b8;">${formatDate(c.date)}</p>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                <span style="font-weight:700;font-size:13px;">${formatRp(c.amount)}</span>
+                ${!isSold?`<div class="item-actions">
+                    <button class="icon-btn icon-btn-edit" onclick="openEditCapital('${c.id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                    <button class="icon-btn icon-btn-del" onclick="openDeleteCapital('${c.id}')" title="Hapus"><i class="fa-solid fa-trash"></i></button>
+                </div>`:''}
+            </div>`;
+        listCap.appendChild(li);
+    });
+
+    // OPS LIST
+    const listOps=document.getElementById('list-ops');
+    const ops=operations.filter(o=>o.vehicleId===currentVehicleId).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    listOps.innerHTML=ops.length===0?'<li style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic;">Belum ada biaya operasional.</li>':'';
+    ops.forEach(o=>{
+        const li=document.createElement('li');li.className='list-item-row';
+        li.innerHTML=`
+            <div style="flex:1;min-width:0;">
+                <p style="font-weight:600;font-size:13px;">${o.desc}</p>
+                <p style="font-size:11px;color:#94a3b8;">${formatDate(o.date)}</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                <span style="font-weight:700;font-size:13px;color:#f59e0b;">${formatRp(o.amount)}</span>
+                ${!isSold?`<div class="item-actions">
+                    <button class="icon-btn icon-btn-edit" onclick="openEditOps('${o.id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                    <button class="icon-btn icon-btn-del" onclick="openDeleteOps('${o.id}')" title="Hapus"><i class="fa-solid fa-trash"></i></button>
+                </div>`:''}
+            </div>`;
+        listOps.appendChild(li);
+    });
+}
+
+// ===== EDIT & HAPUS MODAL AWAL =====
+function openEditCapital(capId){
+    const cap=capitals.find(c=>c.id===capId);if(!cap)return;
+    document.getElementById('edit-cap-id').value=capId;
+    document.getElementById('edit-cap-amount').value=cap.amount;
+    populateCapSourceDropdown('edit-cap-source');
+    document.getElementById('edit-cap-source').value=cap.source;
+    openModal('modal-edit-capital');
+}
+document.getElementById('form-edit-capital').addEventListener('submit',async function(e){
+    e.preventDefault();
+    const capId=document.getElementById('edit-cap-id').value;
+    const newSource=document.getElementById('edit-cap-source').value;
+    const newAmount=parseInt(document.getElementById('edit-cap-amount').value);
+    if(!newSource){showToast('Pilih sumber modal!','error');return;}
+    setBtnLoading('edit-cap-submit-btn',true);
+    try{
+        await FB().updateDoc(FB().doc(FB().db,'capitals',capId),{source:newSource,amount:newAmount});
+        const idx=capitals.findIndex(c=>c.id===capId);
+        if(idx!==-1){capitals[idx].source=newSource;capitals[idx].amount=newAmount;}
+        closeModal('modal-edit-capital');refreshFinanceLists();showToast('Modal berhasil diperbarui!');
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('edit-cap-submit-btn',false);
+});
+function openDeleteCapital(capId){
+    const cap=capitals.find(c=>c.id===capId);if(!cap)return;
+    document.getElementById('del-cap-id').value=capId;
+    document.getElementById('del-cap-source').innerText=cap.source;
+    document.getElementById('del-cap-amount').innerText=formatRp(cap.amount);
+    openModal('modal-delete-capital');
+}
+async function confirmDeleteCapital(){
+    const capId=document.getElementById('del-cap-id').value;setBtnLoading('del-cap-btn',true);
+    try{
+        await FB().deleteDoc(FB().doc(FB().db,'capitals',capId));
+        capitals=capitals.filter(c=>c.id!==capId);
+        closeModal('modal-delete-capital');refreshFinanceLists();showToast('Modal berhasil dihapus!');
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('del-cap-btn',false);
+}
+
+// ===== EDIT & HAPUS OPERASIONAL =====
+function openEditOps(opsId){
+    const ops=operations.find(o=>o.id===opsId);if(!ops)return;
+    document.getElementById('edit-ops-id').value=opsId;
+    document.getElementById('edit-ops-date').value=ops.date;
+    document.getElementById('edit-ops-desc').value=ops.desc;
+    document.getElementById('edit-ops-amount').value=ops.amount;
+    openModal('modal-edit-ops');
+}
+document.getElementById('form-edit-ops').addEventListener('submit',async function(e){
+    e.preventDefault();
+    const opsId=document.getElementById('edit-ops-id').value;
+    const newDate=document.getElementById('edit-ops-date').value;
+    const newDesc=document.getElementById('edit-ops-desc').value.trim();
+    const newAmount=parseInt(document.getElementById('edit-ops-amount').value);
+    setBtnLoading('edit-ops-submit-btn',true);
+    try{
+        await FB().updateDoc(FB().doc(FB().db,'operations',opsId),{date:newDate,desc:newDesc,amount:newAmount});
+        const idx=operations.findIndex(o=>o.id===opsId);
+        if(idx!==-1){operations[idx].date=newDate;operations[idx].desc=newDesc;operations[idx].amount=newAmount;}
+        closeModal('modal-edit-ops');refreshFinanceLists();showToast('Biaya operasional diperbarui!');
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('edit-ops-submit-btn',false);
+});
+function openDeleteOps(opsId){
+    const ops=operations.find(o=>o.id===opsId);if(!ops)return;
+    document.getElementById('del-ops-id').value=opsId;
+    document.getElementById('del-ops-desc').innerText=ops.desc;
+    document.getElementById('del-ops-amount').innerText=formatRp(ops.amount);
+    openModal('modal-delete-ops');
+}
+async function confirmDeleteOps(){
+    const opsId=document.getElementById('del-ops-id').value;setBtnLoading('del-ops-btn',true);
+    try{
+        await FB().deleteDoc(FB().doc(FB().db,'operations',opsId));
+        operations=operations.filter(o=>o.id!==opsId);
+        closeModal('modal-delete-ops');refreshFinanceLists();showToast('Biaya operasional dihapus!');
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('del-ops-btn',false);
+}
+
+// ===== TAMBAH MODAL & OPS =====
+document.getElementById('form-add-capital').addEventListener('submit',async function(e){
+    e.preventDefault();
+    const source=document.getElementById('cap-source').value;
+    if(!source){showToast('Pilih sumber modal!','error');return;}
+    setBtnLoading('cap-submit-btn',true);
+    try{
+        const today=new Date().toISOString().split('T')[0];
+        const newCap={vehicleId:currentVehicleId,source,amount:parseInt(document.getElementById('cap-amount').value),date:today,createdAt:FB().serverTimestamp()};
+        const docRef=await FB().addDoc(C('capitals'),newCap);
+        capitals.push({id:docRef.id,...newCap,createdAt:new Date()});
+        this.reset();refreshFinanceLists();showToast('Modal berhasil ditambahkan!');
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('cap-submit-btn',false);
+});
+document.getElementById('form-add-ops').addEventListener('submit',async function(e){
+    e.preventDefault();setBtnLoading('ops-submit-btn',true);
+    try{
+        const newOps={vehicleId:currentVehicleId,desc:document.getElementById('ops-desc').value.trim(),amount:parseInt(document.getElementById('ops-amount').value),date:document.getElementById('ops-date').value,createdAt:FB().serverTimestamp()};
+        const docRef=await FB().addDoc(C('operations'),newOps);
+        operations.push({id:docRef.id,...newOps,createdAt:new Date()});
+        this.reset();document.getElementById('ops-date').valueAsDate=new Date();
+        refreshFinanceLists();showToast('Biaya operasional tercatat!');
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('ops-submit-btn',false);
+});
+
+// ===== SALES =====
+function renderSales(){
+    const grid=document.getElementById('sales-grid'),empty=document.getElementById('sales-empty');
+    grid.innerHTML='';
+    const tersedia=vehicles.filter(v=>v.status==='tersedia');
+    if(tersedia.length===0){grid.style.display='none';empty.style.display='block';return;}
+    grid.style.display='grid';empty.style.display='none';
+    tersedia.forEach(v=>{
+        const fin=getVehicleFinance(v.id);
+        grid.insertAdjacentHTML('beforeend',`<div class="veh-card"><img src="${v.photo||DEFAULT_IMG}" alt="${v.name}" style="width:100%;height:160px;object-fit:cover;" onerror="this.src='${DEFAULT_IMG}'"><div style="padding:16px;flex:1;display:flex;flex-direction:column;"><h3 style="font-weight:700;font-size:16px;margin-bottom:4px;">${v.name}</h3><p style="font-size:12px;color:#94a3b8;margin-bottom:12px;" class="mono">${v.plate} • ${v.year}</p><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:14px;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span style="color:#64748b;">Total Modal Induk:</span><span style="font-weight:700;">${formatRp(fin.totalCost)}</span></div><div style="font-size:11px;color:#94a3b8;">Investasi: ${formatRp(fin.totalCapital)} | Ops: ${formatRp(fin.totalOps)}</div></div><button onclick="openSellModal('${v.id}')" class="btn btn-success" style="width:100%;justify-content:center;margin-top:auto;"><i class="fa-solid fa-cart-shopping"></i> Proses Penjualan</button></div></div>`);
+    });
+}
+function openSellModal(id){
+    const v=vehicles.find(v=>v.id===id),fin=getVehicleFinance(id);
+    document.getElementById('sell-veh-id').value=id;
+    document.getElementById('sell-veh-name').innerText=v.name;
+    document.getElementById('sell-veh-cost').innerText=formatRp(fin.totalCost);
+    document.getElementById('sell-date').valueAsDate=new Date();
+    openModal('modal-sell-vehicle');
+}
+document.getElementById('form-sell-vehicle').addEventListener('submit',async function(e){
+    e.preventDefault();const id=document.getElementById('sell-veh-id').value;setBtnLoading('sell-submit-btn',true);
+    try{
+        const price=parseInt(document.getElementById('sell-price').value),date=document.getElementById('sell-date').value,buyer=document.getElementById('sell-buyer').value.trim();
+        await FB().updateDoc(FB().doc(FB().db,'vehicles',id),{status:'terjual'});
+        const vIdx=vehicles.findIndex(v=>v.id===id);if(vIdx!==-1)vehicles[vIdx].status='terjual';
+        const newSale={vehicleId:id,date,buyer,price,createdAt:FB().serverTimestamp()};
+        const docRef=await FB().addDoc(C('sales'),newSale);
+        sales.push({id:docRef.id,...newSale,createdAt:new Date()});
+        this.reset();closeModal('modal-sell-vehicle');showToast('Penjualan sukses dicatat! 🎉');renderSales();
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('sell-submit-btn',false);
+});
+
+// ===== DASHBOARD =====
+function setFilter(type){
+    currentFilter=type;
+    document.querySelectorAll('.filter-tab').forEach((b,i)=>b.classList.toggle('active',['today','month','year','custom'][i]===type));
+    document.getElementById('custom-range').style.display=type==='custom'?'flex':'none';
+    if(type!=='custom')renderDashboard();
+}
+function getFilterDates(){
+    const now=new Date();let start,end=new Date();end.setHours(23,59,59,999);
+    if(currentFilter==='today')start=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    else if(currentFilter==='month')start=new Date(now.getFullYear(),now.getMonth(),1);
+    else if(currentFilter==='year')start=new Date(now.getFullYear(),0,1);
+    else{const s=document.getElementById('filter-start').value,e=document.getElementById('filter-end').value;start=s?new Date(s):new Date(0);if(e){end=new Date(e);end.setHours(23,59,59,999);}}
+    return{start,end};
+}
+
+function renderDashboard(){
+    const{start,end}=getFilterDates();
+    const tbody=document.getElementById('report-table-body'),table=document.getElementById('report-table'),empty=document.getElementById('report-empty');
+    tbody.innerHTML='';
+    const filtered=sales.filter(s=>{const d=new Date(s.date+'T00:00:00');return d>=start&&d<=end;}).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    if(filtered.length===0){
+        table.style.display='none';empty.style.display='block';
+        ['dash-unit','dash-modal','dash-omset'].forEach(id=>document.getElementById(id).innerText=id==='dash-unit'?'0':'Rp 0');
+        document.getElementById('dash-profit').innerText='Rp 0';document.getElementById('dash-profit').style.color='#059669';return;
+    }
+    table.style.display='table';empty.style.display='none';
+    let sumCost=0,sumOmset=0,sumProfit=0;
+    filtered.forEach(s=>{
+        const v=vehicles.find(v=>v.id===s.vehicleId),fin=getVehicleFinance(s.vehicleId);
+        sumCost+=fin.totalCost;sumOmset+=Number(s.price)||0;sumProfit+=fin.profit;
+        const pc=fin.profit>=0?'#059669':'#dc2626';
+        const vName=v?.name||'-',vPlate=v?.plate||'';
+        const sId=s.id,sVehId=s.vehicleId;
+        const tr=document.createElement('tr');
+        tr.innerHTML=`
+            <td><p style="font-weight:600;">${vName}</p><p style="font-size:11px;color:#94a3b8;" class="mono">${vPlate}</p></td>
+            <td style="color:#64748b;">${formatDate(s.date)}</td>
+            <td>${formatRp(fin.totalCapital)}</td>
+            <td style="color:#f59e0b;">${formatRp(fin.totalOps)}</td>
+            <td style="font-weight:600;">${formatRp(fin.totalCost)}</td>
+            <td style="font-weight:700;color:#059669;">${formatRp(Number(s.price)||0)}</td>
+            <td style="text-align:right;font-weight:800;color:${pc};">${formatRp(fin.profit)}</td>
+            <td style="text-align:center;white-space:nowrap;">
+                <button class="dash-action-btn edit" onclick="openEditSale('${sId}')" title="Edit harga jual / tanggal">
+                    <i class="fa-solid fa-pen"></i> Edit
+                </button>
+                <button class="dash-action-btn del" onclick="openCancelSale('${sId}','${sVehId}')" title="Batalkan penjualan (rollback)">
+                    <i class="fa-solid fa-rotate-left"></i> Batal
+                </button>
+            </td>`;
+        tbody.appendChild(tr);
+    });
+    document.getElementById('dash-unit').innerText=filtered.length;
+    document.getElementById('dash-modal').innerText=formatRp(sumCost);
+    document.getElementById('dash-omset').innerText=formatRp(sumOmset);
+    const profitEl=document.getElementById('dash-profit');
+    profitEl.innerText=formatRp(sumProfit);profitEl.style.color=sumProfit>=0?'#059669':'#dc2626';
+}
+
+// ===== ✅ EDIT PENJUALAN (Dashboard) =====
+function openEditSale(saleId){
+    const s=sales.find(s=>s.id===saleId);if(!s)return;
+    const v=vehicles.find(v=>v.id===s.vehicleId);
+    document.getElementById('edit-sale-id').value=saleId;
+    document.getElementById('edit-sale-veh-name').innerText=v?.name||'-';
+    document.getElementById('edit-sale-date').value=s.date;
+    document.getElementById('edit-sale-buyer').value=s.buyer||'';
+    document.getElementById('edit-sale-price').value=s.price;
+    openModal('modal-edit-sale');
+}
+document.getElementById('form-edit-sale').addEventListener('submit',async function(e){
+    e.preventDefault();
+    const saleId=document.getElementById('edit-sale-id').value;
+    const newDate=document.getElementById('edit-sale-date').value;
+    const newBuyer=document.getElementById('edit-sale-buyer').value.trim();
+    const newPrice=parseInt(document.getElementById('edit-sale-price').value);
+    setBtnLoading('edit-sale-submit-btn',true);
+    try{
+        await FB().updateDoc(FB().doc(FB().db,'sales',saleId),{date:newDate,buyer:newBuyer,price:newPrice});
+        const idx=sales.findIndex(s=>s.id===saleId);
+        if(idx!==-1){sales[idx].date=newDate;sales[idx].buyer=newBuyer;sales[idx].price=newPrice;}
+        closeModal('modal-edit-sale');renderDashboard();showToast('Data penjualan berhasil diperbarui!');
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('edit-sale-submit-btn',false);
+});
+
+// ===== ✅ BATALKAN PENJUALAN + ROLLBACK STOK (Dashboard) =====
+function openCancelSale(saleId,vehId){
+    const s=sales.find(s=>s.id===saleId),v=vehicles.find(v=>v.id===vehId);if(!s||!v)return;
+    document.getElementById('cancel-sale-id').value=saleId;
+    document.getElementById('cancel-sale-veh-id').value=vehId;
+    document.getElementById('cancel-sale-veh-name').innerText=v.name;
+    document.getElementById('cancel-sale-price').innerText=formatRp(s.price);
+    document.getElementById('cancel-sale-buyer').innerText=s.buyer||'-';
+    openModal('modal-cancel-sale');
+}
+async function confirmCancelSale(){
+    const saleId=document.getElementById('cancel-sale-id').value;
+    const vehId=document.getElementById('cancel-sale-veh-id').value;
+    setBtnLoading('cancel-sale-confirm-btn',true);
+    try{
+        // 1. Hapus record penjualan
+        await FB().deleteDoc(FB().doc(FB().db,'sales',saleId));
+        // 2. Rollback status kendaraan → tersedia
+        await FB().updateDoc(FB().doc(FB().db,'vehicles',vehId),{status:'tersedia'});
+        // 3. Update cache lokal
+        sales=sales.filter(s=>s.id!==saleId);
+        const vIdx=vehicles.findIndex(v=>v.id===vehId);
+        if(vIdx!==-1)vehicles[vIdx].status='tersedia';
+        closeModal('modal-cancel-sale');
+        renderDashboard();
+        showToast('Penjualan dibatalkan. Kendaraan kembali ke stok tersedia.');
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('cancel-sale-confirm-btn',false);
+}
+
+// ===== SUMBER MODAL =====
+function renderCapitalSources(){
+    document.getElementById('cs-total-sources').innerText=capitalSources.length;
+    const sourceAmounts={};capitalSources.forEach(s=>{sourceAmounts[s.name]=0;});
+    capitals.forEach(c=>{if(sourceAmounts.hasOwnProperty(c.source))sourceAmounts[c.source]+=Number(c.amount)||0;});
+    const totalAll=Object.values(sourceAmounts).reduce((a,b)=>a+b,0);
+    document.getElementById('cs-total-amount').innerText=formatRp(totalAll);
+    let topSource='-',topAmt=0;
+    Object.entries(sourceAmounts).forEach(([name,amt])=>{if(amt>topAmt){topAmt=amt;topSource=name;}});
+    document.getElementById('cs-top-source').innerText=topSource+(topAmt>0?` (${formatRp(topAmt)})`:'');
+
+    const list=document.getElementById('sources-list'),empty=document.getElementById('sources-empty');
+    list.innerHTML='';
+    if(capitalSources.length===0){list.style.display='none';empty.style.display='block';}
+    else{
+        list.style.display='flex';empty.style.display='none';
+        capitalSources.forEach((s,i)=>{
+            const color=s.color||SOURCE_COLORS[i%SOURCE_COLORS.length];
+            list.insertAdjacentHTML('beforeend',`<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fafbfc;border:1px solid #e2e8f0;border-radius:10px;"><div style="width:36px;height:36px;border-radius:8px;background:${color}22;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span class="color-swatch" style="background:${color};width:14px;height:14px;border-radius:4px;"></span></div><div style="flex:1;min-width:0;"><p style="font-weight:700;font-size:14px;margin-bottom:2px;">${s.name}</p><p style="font-size:11px;color:#94a3b8;">${s.desc||'Tidak ada keterangan'}</p></div><div style="text-align:right;flex-shrink:0;"><p style="font-size:12px;color:#64748b;font-weight:600;">${formatRp(sourceAmounts[s.name]||0)}</p><button onclick="openDeleteSourceModal('${s.id}','${s.name.replace(/'/g,"&#39;")}')" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:11px;margin-top:2px;"><i class="fa-solid fa-trash"></i></button></div></div>`);
+        });
+    }
+    const breakdown=document.getElementById('sources-breakdown'),bEmpty=document.getElementById('sources-breakdown-empty');
+    breakdown.innerHTML='';
+    if(totalAll===0){breakdown.style.display='none';bEmpty.style.display='block';}
+    else{
+        breakdown.style.display='flex';bEmpty.style.display='none';
+        Object.entries(sourceAmounts).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0).forEach(([name,amt])=>{
+            const src=capitalSources.find(s=>s.name===name),color=src?.color||'#3b82f6',pct=Math.round(amt/totalAll*100);
+            breakdown.insertAdjacentHTML('beforeend',`<div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div style="display:flex;align-items:center;gap:8px;"><span class="color-swatch" style="background:${color};"></span><span style="font-size:13px;font-weight:600;">${name}</span></div><div style="text-align:right;"><span style="font-size:13px;font-weight:700;">${formatRp(amt)}</span><span style="font-size:11px;color:#94a3b8;margin-left:6px;">${pct}%</span></div></div><div class="cap-progress"><div class="cap-progress-fill" style="width:${pct}%;background:${color};"></div></div></div>`);
+        });
+    }
+}
+document.getElementById('form-add-source').addEventListener('submit',async function(e){
+    e.preventDefault();
+    const name=document.getElementById('source-name').value.trim(),desc=document.getElementById('source-desc').value.trim();
+    if(capitalSources.find(s=>s.name.toLowerCase()===name.toLowerCase())){showToast('Nama sumber modal sudah ada!','error');return;}
+    setBtnLoading('source-submit-btn',true);
+    try{
+        const color=SOURCE_COLORS[capitalSources.length%SOURCE_COLORS.length];
+        const docRef=await FB().addDoc(C('capitalSources'),{name,desc,color,createdAt:FB().serverTimestamp()});
+        capitalSources.push({id:docRef.id,name,desc,color,createdAt:new Date()});
+        this.reset();closeModal('modal-add-source');showToast('Sumber modal ditambahkan!');renderCapitalSources();
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('source-submit-btn',false);
+});
+function openDeleteSourceModal(id,name){document.getElementById('delete-source-id').value=id;document.getElementById('delete-source-name').innerText=name;openModal('modal-delete-source');}
+async function confirmDeleteSource(){
+    const id=document.getElementById('delete-source-id').value;setBtnLoading('delete-source-btn',true);
+    try{
+        await FB().deleteDoc(FB().doc(FB().db,'capitalSources',id));
+        capitalSources=capitalSources.filter(s=>s.id!==id);
+        closeModal('modal-delete-source');showToast('Sumber modal dihapus!');renderCapitalSources();
+        if(currentVehicleId)populateCapSourceDropdown('cap-source');
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('delete-source-btn',false);
+}
+
+// ===== INIT =====
+document.addEventListener('firebase-ready',async()=>{
+    await loadAllData();
+    const now=new Date();
+    document.getElementById('veh-date').valueAsDate=now;
+    document.getElementById('topbar-date').innerText=now.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    if(window.innerWidth<=768)document.getElementById('menu-btn').style.display='block';
+    nav('dashboard');
+});
+setTimeout(()=>{if(!window._firebaseReady){hideLoading();showToast('Koneksi Firebase timeout!','error');}},8000);
+</script>
+</body>
+</html>
