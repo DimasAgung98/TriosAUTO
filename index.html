@@ -497,6 +497,7 @@
                                 <input type="date" id="ops-date" class="inp" style="flex:1;font-size:13px;" required>
                                 <input type="text" id="ops-desc" placeholder="Keterangan" class="inp" style="flex:2;font-size:13px;" required>
                             </div>
+                            <select id="ops-paidBy" class="inp" style="font-size:13px;" required><option value="">Siapa yang menanggung biaya ini?</option></select>
                             <div style="display:flex;gap:8px;">
                                 <input type="number" id="ops-amount" placeholder="Nominal (Rp)" class="inp" style="flex:1;font-size:13px;" required min="0">
                                 <button type="submit" id="ops-submit-btn" class="btn btn-sm" style="background:#f59e0b;color:white;white-space:nowrap;">+ Tambah</button>
@@ -504,6 +505,7 @@
                         </form>
                     </div>
                     <ul id="list-ops" style="max-height:320px;overflow-y:auto;list-style:none;margin:0;padding:0;"></ul>
+                    <div id="ops-source-summary" style="display:none;"></div>
                 </div>
             </div>
         </section>
@@ -670,6 +672,7 @@
                 <input type="hidden" id="edit-ops-id">
                 <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal</label><input type="date" id="edit-ops-date" class="inp" required></div>
                 <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Keterangan</label><input type="text" id="edit-ops-desc" class="inp" required></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Ditanggung oleh</label><select id="edit-ops-paidBy" class="inp" required style="font-size:13px;"><option value="">Pilih Sumber Modal...</option></select></div>
                 <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nominal (Rp)</label><input type="number" id="edit-ops-amount" class="inp" style="font-size:16px;font-weight:700;" required min="0"></div>
                 <div class="warn-box"><p><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Perubahan akan langsung memperbarui total modal kendaraan ini.</p></div>
                 <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border);"><button type="button" onclick="closeModal('modal-edit-ops')" class="btn btn-ghost">Batal</button><button type="submit" id="edit-ops-submit-btn" class="btn btn-warn"><i class="fa-solid fa-floppy-disk"></i> Simpan</button></div>
@@ -893,7 +896,7 @@ function openVehicleFinance(id){
     document.getElementById('cap-submit-btn').disabled=isSold;
     document.getElementById('ops-submit-btn').disabled=isSold;
     document.getElementById('ops-date').valueAsDate=new Date();
-    populateCapSourceDropdown('cap-source');refreshFinanceLists();nav('vehicle-finance');
+    populateCapSourceDropdown('cap-source');populateCapSourceDropdown('ops-paidBy');refreshFinanceLists();nav('vehicle-finance');
 }
 
 function populateCapSourceDropdown(selId){
@@ -939,11 +942,15 @@ function refreshFinanceLists(){
     const ops=operations.filter(o=>o.vehicleId===currentVehicleId).sort((a,b)=>new Date(b.date)-new Date(a.date));
     listOps.innerHTML=ops.length===0?'<li style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic;">Belum ada biaya operasional.</li>':'';
     ops.forEach(o=>{
+        const src=capitalSources.find(s=>s.name===o.paidBy),srcColor=src?.color||'#f59e0b';
         const li=document.createElement('li');li.className='list-item-row';
         li.innerHTML=`
             <div style="flex:1;min-width:0;">
                 <p style="font-weight:600;font-size:13px;">${o.desc}</p>
-                <p style="font-size:11px;color:#94a3b8;">${formatDate(o.date)}</p>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:2px;flex-wrap:wrap;">
+                    <p style="font-size:11px;color:#94a3b8;">${formatDate(o.date)}</p>
+                    ${o.paidBy?`<span style="display:inline-flex;align-items:center;gap:4px;background:${srcColor}18;border:1px solid ${srcColor}44;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:700;color:${srcColor};"><span style="width:6px;height:6px;border-radius:50%;background:${srcColor};flex-shrink:0;"></span>${o.paidBy}</span>`:''}
+                </div>
             </div>
             <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
                 <span style="font-weight:700;font-size:13px;color:#f59e0b;">${formatRp(o.amount)}</span>
@@ -954,6 +961,18 @@ function refreshFinanceLists(){
             </div>`;
         listOps.appendChild(li);
     });
+    // OPS SUMMARY per sumber modal
+    const opsSummaryEl=document.getElementById('ops-source-summary');
+    const opsBySource={};
+    ops.forEach(o=>{if(o.paidBy){opsBySource[o.paidBy]=(opsBySource[o.paidBy]||0)+Number(o.amount);}});
+    const sourceEntries=Object.entries(opsBySource).sort((a,b)=>b[1]-a[1]);
+    if(sourceEntries.length>0){
+        opsSummaryEl.style.display='block';
+        opsSummaryEl.innerHTML=`<div style="padding:10px 16px;background:#fffbeb;border-top:1px solid #fde68a;"><p style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;"><i class="fa-solid fa-chart-pie" style="margin-right:4px;"></i>Biaya Operasional per Sumber Modal</p><div style="display:flex;flex-wrap:wrap;gap:6px;">`+sourceEntries.map(([name,amt])=>{const src=capitalSources.find(s=>s.name===name),color=src?.color||'#f59e0b';return`<div style="display:inline-flex;align-items:center;gap:5px;background:${color}14;border:1px solid ${color}33;border-radius:8px;padding:4px 10px;"><span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></span><span style="font-size:11px;font-weight:600;color:${color};">${name}</span><span style="font-size:11px;font-weight:800;color:#374151;">${formatRp(amt)}</span></div>`;}).join('')+`</div></div>`;
+    }else{
+        opsSummaryEl.style.display='none';
+        opsSummaryEl.innerHTML='';
+    }
 }
 
 // ===== EDIT & HAPUS MODAL AWAL =====
@@ -1004,6 +1023,8 @@ function openEditOps(opsId){
     document.getElementById('edit-ops-date').value=ops.date;
     document.getElementById('edit-ops-desc').value=ops.desc;
     document.getElementById('edit-ops-amount').value=ops.amount;
+    populateCapSourceDropdown('edit-ops-paidBy');
+    document.getElementById('edit-ops-paidBy').value=ops.paidBy||'';
     openModal('modal-edit-ops');
 }
 document.getElementById('form-edit-ops').addEventListener('submit',async function(e){
@@ -1011,12 +1032,14 @@ document.getElementById('form-edit-ops').addEventListener('submit',async functio
     const opsId=document.getElementById('edit-ops-id').value;
     const newDate=document.getElementById('edit-ops-date').value;
     const newDesc=document.getElementById('edit-ops-desc').value.trim();
+    const newPaidBy=document.getElementById('edit-ops-paidBy').value;
     const newAmount=parseInt(document.getElementById('edit-ops-amount').value);
+    if(!newPaidBy){showToast('Pilih siapa yang menanggung biaya ini!','error');return;}
     setBtnLoading('edit-ops-submit-btn',true);
     try{
-        await FB().updateDoc(FB().doc(FB().db,'operations',opsId),{date:newDate,desc:newDesc,amount:newAmount});
+        await FB().updateDoc(FB().doc(FB().db,'operations',opsId),{date:newDate,desc:newDesc,paidBy:newPaidBy,amount:newAmount});
         const idx=operations.findIndex(o=>o.id===opsId);
-        if(idx!==-1){operations[idx].date=newDate;operations[idx].desc=newDesc;operations[idx].amount=newAmount;}
+        if(idx!==-1){operations[idx].date=newDate;operations[idx].desc=newDesc;operations[idx].paidBy=newPaidBy;operations[idx].amount=newAmount;}
         closeModal('modal-edit-ops');refreshFinanceLists();showToast('Biaya operasional diperbarui!');
     }catch(err){showToast('Gagal: '+err.message,'error');}
     setBtnLoading('edit-ops-submit-btn',false);
@@ -1054,9 +1077,12 @@ document.getElementById('form-add-capital').addEventListener('submit',async func
     setBtnLoading('cap-submit-btn',false);
 });
 document.getElementById('form-add-ops').addEventListener('submit',async function(e){
-    e.preventDefault();setBtnLoading('ops-submit-btn',true);
+    e.preventDefault();
+    const paidBy=document.getElementById('ops-paidBy').value;
+    if(!paidBy){showToast('Pilih siapa yang menanggung biaya ini!','error');return;}
+    setBtnLoading('ops-submit-btn',true);
     try{
-        const newOps={vehicleId:currentVehicleId,desc:document.getElementById('ops-desc').value.trim(),amount:parseInt(document.getElementById('ops-amount').value),date:document.getElementById('ops-date').value,createdAt:FB().serverTimestamp()};
+        const newOps={vehicleId:currentVehicleId,desc:document.getElementById('ops-desc').value.trim(),amount:parseInt(document.getElementById('ops-amount').value),date:document.getElementById('ops-date').value,paidBy,createdAt:FB().serverTimestamp()};
         const docRef=await FB().addDoc(C('operations'),newOps);
         operations.push({id:docRef.id,...newOps,createdAt:new Date()});
         this.reset();document.getElementById('ops-date').valueAsDate=new Date();
@@ -1227,6 +1253,10 @@ function renderCapitalSources(){
     Object.entries(sourceAmounts).forEach(([name,amt])=>{if(amt>topAmt){topAmt=amt;topSource=name;}});
     document.getElementById('cs-top-source').innerText=topSource+(topAmt>0?` (${formatRp(topAmt)})`:'');
 
+    // Hitung total operasional per sumber modal
+    const sourceOps={};capitalSources.forEach(s=>{sourceOps[s.name]=0;});
+    operations.forEach(o=>{if(o.paidBy&&sourceOps.hasOwnProperty(o.paidBy))sourceOps[o.paidBy]+=Number(o.amount)||0;});
+
     const list=document.getElementById('sources-list'),empty=document.getElementById('sources-empty');
     list.innerHTML='';
     if(capitalSources.length===0){list.style.display='none';empty.style.display='block';}
@@ -1234,7 +1264,9 @@ function renderCapitalSources(){
         list.style.display='flex';empty.style.display='none';
         capitalSources.forEach((s,i)=>{
             const color=s.color||SOURCE_COLORS[i%SOURCE_COLORS.length];
-            list.insertAdjacentHTML('beforeend',`<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fafbfc;border:1px solid #e2e8f0;border-radius:10px;"><div style="width:36px;height:36px;border-radius:8px;background:${color}22;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span class="color-swatch" style="background:${color};width:14px;height:14px;border-radius:4px;"></span></div><div style="flex:1;min-width:0;"><p style="font-weight:700;font-size:14px;margin-bottom:2px;">${s.name}</p><p style="font-size:11px;color:#94a3b8;">${s.desc||'Tidak ada keterangan'}</p></div><div style="text-align:right;flex-shrink:0;"><p style="font-size:12px;color:#64748b;font-weight:600;">${formatRp(sourceAmounts[s.name]||0)}</p><button onclick="openDeleteSourceModal('${s.id}','${s.name.replace(/'/g,"&#39;")}')" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:11px;margin-top:2px;"><i class="fa-solid fa-trash"></i></button></div></div>`);
+            const opsAmt=sourceOps[s.name]||0;
+            const capAmt=sourceAmounts[s.name]||0;
+            list.insertAdjacentHTML('beforeend',`<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:#fafbfc;border:1px solid #e2e8f0;border-radius:10px;"><div style="width:36px;height:36px;border-radius:8px;background:${color}22;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span class="color-swatch" style="background:${color};width:14px;height:14px;border-radius:4px;"></span></div><div style="flex:1;min-width:0;"><p style="font-weight:700;font-size:14px;margin-bottom:2px;">${s.name}</p><p style="font-size:11px;color:#94a3b8;margin-bottom:6px;">${s.desc||'Tidak ada keterangan'}</p><div style="display:flex;flex-wrap:wrap;gap:6px;"><span style="font-size:11px;background:#dbeafe;color:#1d4ed8;border-radius:6px;padding:2px 8px;font-weight:600;"><i class="fa-solid fa-hand-holding-dollar" style="margin-right:3px;font-size:10px;"></i>Modal: ${formatRp(capAmt)}</span><span style="font-size:11px;background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 8px;font-weight:600;"><i class="fa-solid fa-wrench" style="margin-right:3px;font-size:10px;"></i>Ops: ${formatRp(opsAmt)}</span></div></div><div style="text-align:right;flex-shrink:0;"><p style="font-size:12px;color:#64748b;font-weight:600;">${formatRp(capAmt)}</p><button onclick="openDeleteSourceModal('${s.id}','${s.name.replace(/'/g,"&#39;")}')" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:11px;margin-top:2px;"><i class="fa-solid fa-trash"></i></button></div></div>`);
         });
     }
     const breakdown=document.getElementById('sources-breakdown'),bEmpty=document.getElementById('sources-breakdown-empty');
@@ -1244,7 +1276,8 @@ function renderCapitalSources(){
         breakdown.style.display='flex';bEmpty.style.display='none';
         Object.entries(sourceAmounts).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0).forEach(([name,amt])=>{
             const src=capitalSources.find(s=>s.name===name),color=src?.color||'#3b82f6',pct=Math.round(amt/totalAll*100);
-            breakdown.insertAdjacentHTML('beforeend',`<div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div style="display:flex;align-items:center;gap:8px;"><span class="color-swatch" style="background:${color};"></span><span style="font-size:13px;font-weight:600;">${name}</span></div><div style="text-align:right;"><span style="font-size:13px;font-weight:700;">${formatRp(amt)}</span><span style="font-size:11px;color:#94a3b8;margin-left:6px;">${pct}%</span></div></div><div class="cap-progress"><div class="cap-progress-fill" style="width:${pct}%;background:${color};"></div></div></div>`);
+            const opsAmt=sourceOps[name]||0;
+            breakdown.insertAdjacentHTML('beforeend',`<div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div style="display:flex;align-items:center;gap:8px;"><span class="color-swatch" style="background:${color};"></span><span style="font-size:13px;font-weight:600;">${name}</span></div><div style="text-align:right;"><span style="font-size:13px;font-weight:700;">${formatRp(amt)}</span><span style="font-size:11px;color:#94a3b8;margin-left:6px;">${pct}%</span></div></div><div class="cap-progress"><div class="cap-progress-fill" style="width:${pct}%;background:${color};"></div></div>${opsAmt>0?`<p style="font-size:11px;color:#f59e0b;font-weight:600;margin-top:4px;"><i class="fa-solid fa-wrench" style="margin-right:3px;"></i>Biaya operasional: ${formatRp(opsAmt)}</p>`:''}</div>`);
         });
     }
 }
