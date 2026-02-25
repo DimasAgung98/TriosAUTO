@@ -256,23 +256,24 @@
         .list-item-row{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid #f1f5f9;transition:background 0.15s}
         .list-item-row:hover{background:#fafbff}
         .list-item-row:last-child{border-bottom:none}
-        .item-actions{display:flex;align-items:center;gap:2px;opacity:0;transition:opacity 0.15s;flex-shrink:0}
-        .list-item-row:hover .item-actions{opacity:1}
+        .item-actions{display:flex;align-items:center;gap:2px;opacity:1;flex-shrink:0}
         .icon-btn{background:none;border:none;cursor:pointer;padding:5px 7px;border-radius:6px;font-size:12px;transition:all 0.15s;line-height:1}
         .icon-btn-edit{color:#3b82f6} .icon-btn-edit:hover{background:#eff6ff;color:#1d4ed8}
         .icon-btn-del{color:#ef4444} .icon-btn-del:hover{background:#fef2f2;color:#dc2626}
 
         /* Dashboard table action buttons */
-        .dash-action-btn{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:5px;font-size:11px;transition:all 0.15s;line-height:1;opacity:0}
-        tr:hover .dash-action-btn{opacity:1}
-        .dash-action-btn.edit{color:#3b82f6} .dash-action-btn.edit:hover{background:#eff6ff}
-        .dash-action-btn.del{color:#ef4444} .dash-action-btn.del:hover{background:#fef2f2}
+        .dash-action-btn{background:none;border:none;cursor:pointer;padding:5px 8px;border-radius:6px;font-size:12px;transition:all 0.15s;line-height:1;opacity:1;font-weight:600;}
+        .dash-action-btn.edit{color:#3b82f6;background:#eff6ff;} .dash-action-btn.edit:hover{background:#dbeafe;}
+        .dash-action-btn.del{color:#ef4444;background:#fef2f2;} .dash-action-btn.del:hover{background:#fee2e2;}
 
         /* Warning box */
         .warn-box{background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px}
         .warn-box p{font-size:12px;color:#92400e}
         .danger-box{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px}
         .danger-box p{font-size:13px;color:#dc2626}
+        .inp-rp{position:relative;}
+        .inp-rp::before{content:'Rp';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:#64748b;font-weight:600;pointer-events:none;z-index:1;}
+        .inp-rp input{padding-left:32px !important;}
     </style>
 </head>
 <body>
@@ -476,9 +477,12 @@
                     </div>
                     <div style="padding:16px;border-bottom:1px solid var(--border);">
                         <form id="form-add-capital" style="display:flex;flex-direction:column;gap:8px;">
-                            <select id="cap-source" class="inp" required style="font-size:13px;"><option value="">Pilih Sumber Modal...</option></select>
+                            <div>
+                                <select id="cap-source" class="inp" required style="font-size:13px;" onchange="onCapSourceChange(this.value,'cap-kas-info')"><option value="">Pilih Sumber Modal...</option></select>
+                                <div id="cap-kas-info" style="display:none;margin-top:5px;padding:6px 10px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:7px;font-size:12px;color:#065f46;font-weight:600;"><i class="fa-solid fa-vault" style="margin-right:5px;color:#059669;"></i>Saldo Kas Trios: <span id="cap-kas-saldo-label">Rp 0</span></div>
+                            </div>
                             <div style="display:flex;gap:8px;">
-                                <input type="number" id="cap-amount" placeholder="Nominal (Rp)" class="inp" style="flex:1;font-size:13px;" required min="0">
+                                <div class="inp-rp" style="flex:1;"><input type="text" inputmode="numeric" id="cap-amount" placeholder="0" class="inp rp-input" data-raw="0" style="font-size:13px;" required></div>
                                 <button type="submit" id="cap-submit-btn" class="btn btn-primary btn-sm" style="white-space:nowrap;">+ Tambah</button>
                             </div>
                         </form>
@@ -497,9 +501,12 @@
                                 <input type="date" id="ops-date" class="inp" style="flex:1;font-size:13px;" required>
                                 <input type="text" id="ops-desc" placeholder="Keterangan" class="inp" style="flex:2;font-size:13px;" required>
                             </div>
-                            <select id="ops-paidBy" class="inp" style="font-size:13px;" required><option value="">Siapa yang menanggung biaya ini?</option></select>
+                            <div>
+                                <select id="ops-paidBy" class="inp" style="font-size:13px;" required onchange="onOpsPaidByChange(this.value,'ops-kas-info')"><option value="">Siapa yang menanggung biaya ini?</option></select>
+                                <div id="ops-kas-info" style="display:none;margin-top:5px;padding:6px 10px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:7px;font-size:12px;color:#065f46;font-weight:600;"><i class="fa-solid fa-vault" style="margin-right:5px;color:#059669;"></i>Saldo Kas Trios: <span id="ops-kas-saldo-label">Rp 0</span></div>
+                            </div>
                             <div style="display:flex;gap:8px;">
-                                <input type="number" id="ops-amount" placeholder="Nominal (Rp)" class="inp" style="flex:1;font-size:13px;" required min="0">
+                                <div class="inp-rp" style="flex:1;"><input type="text" inputmode="numeric" id="ops-amount" placeholder="0" class="inp rp-input" data-raw="0" style="font-size:13px;" required></div>
                                 <button type="submit" id="ops-submit-btn" class="btn btn-sm" style="background:#f59e0b;color:white;white-space:nowrap;">+ Tambah</button>
                             </div>
                         </form>
@@ -525,19 +532,72 @@
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
                 <div class="stat-card" style="border-left:4px solid #3b82f6;"><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Sumber Modal</p><h3 id="cs-total-sources" style="font-size:28px;font-weight:800;">0</h3></div>
-                <div class="stat-card" style="border-left:4px solid #f59e0b;"><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Modal Disetor (All Time)</p><h3 id="cs-total-amount" style="font-size:20px;font-weight:800;">Rp 0</h3></div>
                 <div class="stat-card" style="border-left:4px solid #8b5cf6;"><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Kontribusi Terbesar</p><h3 id="cs-top-source" style="font-size:16px;font-weight:800;">-</h3></div>
+                <div class="stat-card" style="border-left:4px solid #059669;"><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Kas Trios Tercatat</p><h3 id="cs-kas-total" style="font-size:20px;font-weight:800;">Rp 0</h3></div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px;">
-                <div class="section-card">
+            <!-- Tabs -->
+            <div class="filter-tabs" style="margin-bottom:20px;width:fit-content;">
+                <button class="filter-tab active" onclick="switchCsTab('sources')">Sumber Modal</button>
+                <button class="filter-tab" onclick="switchCsTab('kas')">Kas Trios</button>
+                <button class="filter-tab" onclick="switchCsTab('sold-log')">Log Mobil Terjual</button>
+            </div>
+            <!-- Tab: Sumber Modal -->
+            <div id="cs-tab-sources">
+                <div class="section-card" style="max-width:560px;">
                     <div class="section-header"><span class="section-title"><i class="fa-solid fa-list" style="color:#3b82f6;margin-right:8px;"></i>Daftar Sumber Modal</span></div>
                     <div id="sources-list" style="padding:16px;display:flex;flex-direction:column;gap:10px;min-height:200px;"></div>
                     <div id="sources-empty" style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;display:none;">Belum ada sumber modal.</div>
                 </div>
+                <!-- <div id="sources-breakdown" style="display:none;"></div>
+                <div id="sources-breakdown-empty" style="display:none;"></div> -->
+            </div>
+            <!-- Tab: Kas Trios -->
+            <div id="cs-tab-kas" style="display:none;">
                 <div class="section-card">
-                    <div class="section-header"><span class="section-title"><i class="fa-solid fa-chart-bar" style="color:#8b5cf6;margin-right:8px;"></i>Distribusi Modal per Sumber</span></div>
-                    <div id="sources-breakdown" style="padding:20px;display:flex;flex-direction:column;gap:14px;"></div>
-                    <div id="sources-breakdown-empty" style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;display:none;">Belum ada data modal tercatat.</div>
+                    <div class="section-header"><span class="section-title"><i class="fa-solid fa-vault" style="color:#059669;margin-right:8px;"></i>Input Kas Trios</span></div>
+                    <div style="padding:16px;border-bottom:1px solid var(--border);">
+                        <form id="form-add-kas" style="display:flex;flex-direction:column;gap:10px;">
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                                <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tanggal</label><input type="date" id="kas-date" class="inp" required></div>
+                                <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jenis</label>
+                                    <select id="kas-type" class="inp" style="font-size:13px;" required>
+                                        <option value="masuk">Kas Masuk</option>
+                                        <option value="keluar">Kas Keluar</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Keterangan</label><input type="text" id="kas-desc" placeholder="Contoh: Setoran modal, Pembayaran listrik..." class="inp" style="font-size:13px;" required></div>
+                            <div style="display:flex;gap:10px;align-items:flex-end;">
+                                <div style="flex:1;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Nominal (Rp)</label><div class="inp-rp"><input type="text" inputmode="numeric" id="kas-amount" placeholder="0" class="inp rp-input" data-raw="0" style="font-size:14px;" required></div></div>
+                                <button type="submit" id="kas-submit-btn" class="btn btn-success" style="white-space:nowrap;"><i class="fa-solid fa-plus"></i> Tambah</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div style="max-height:480px;overflow-y:auto;">
+                        <table class="data-table">
+                            <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Jenis</th><th style="text-align:right;">Nominal</th><th></th></tr></thead>
+                            <tbody id="kas-table-body"></tbody>
+                        </table>
+                        <div id="kas-empty" style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;">Belum ada data kas.</div>
+                    </div>
+                    <div style="padding:14px 20px;border-top:1px solid var(--border);background:#f8fafc;display:flex;gap:20px;flex-wrap:wrap;">
+                        <span style="font-size:13px;font-weight:600;">Kas Masuk: <span id="kas-sum-in" style="color:#059669;">Rp 0</span></span>
+                        <span style="font-size:13px;font-weight:600;">Kas Keluar: <span id="kas-sum-out" style="color:#dc2626;">Rp 0</span></span>
+                        <span style="font-size:13px;font-weight:700;">Saldo: <span id="kas-saldo" style="color:#1d4ed8;">Rp 0</span></span>
+                    </div>
+                </div>
+            </div>
+            <!-- Tab: Log Mobil Terjual -->
+            <div id="cs-tab-sold-log" style="display:none;">
+                <div class="section-card">
+                    <div class="section-header"><span class="section-title"><i class="fa-solid fa-car" style="color:#059669;margin-right:8px;"></i>Log Mobil Terjual</span></div>
+                    <div style="overflow-x:auto;">
+                        <table class="data-table">
+                            <thead><tr><th>Kendaraan</th><th>Tgl Terjual</th><th>Pembeli</th><th>Total Modal</th><th>Harga Jual</th><th style="text-align:right;">Profit</th><th style="text-align:center;">Detail</th></tr></thead>
+                            <tbody id="sold-log-body"></tbody>
+                        </table>
+                        <div id="sold-log-empty" style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;">Belum ada mobil terjual.</div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -591,7 +651,7 @@
                 <input type="hidden" id="sell-veh-id">
                 <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Terjual</label><input type="date" id="sell-date" class="inp" required></div>
                 <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nama Pembeli</label><input type="text" id="sell-buyer" placeholder="Nama pelanggan" class="inp" required></div>
-                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Harga Jual (Rp)</label><input type="number" id="sell-price" placeholder="Contoh: 150000000" class="inp" style="font-size:18px;font-weight:700;color:#059669;" required min="0"></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Harga Jual (Rp)</label><div class="inp-rp"><input type="text" inputmode="numeric" id="sell-price" placeholder="0" class="inp rp-input" data-raw="0" style="font-size:18px;font-weight:700;color:#059669;" required></div></div>
                 <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border);"><button type="button" onclick="closeModal('modal-sell-vehicle')" class="btn btn-ghost">Batal</button><button type="submit" id="sell-submit-btn" class="btn btn-success">Konfirmasi Terjual</button></div>
             </form>
         </div>
@@ -640,8 +700,11 @@
         <div style="padding:20px;">
             <form id="form-edit-capital" style="display:flex;flex-direction:column;gap:14px;">
                 <input type="hidden" id="edit-cap-id">
-                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Sumber Modal</label><select id="edit-cap-source" class="inp" required style="font-size:13px;"><option value="">Pilih...</option></select></div>
-                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nominal (Rp)</label><input type="number" id="edit-cap-amount" class="inp" style="font-size:16px;font-weight:700;" required min="0"></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Sumber Modal</label>
+                    <select id="edit-cap-source" class="inp" required style="font-size:13px;" onchange="onCapSourceChange(this.value,'edit-cap-kas-info')"><option value="">Pilih...</option></select>
+                    <div id="edit-cap-kas-info" style="display:none;margin-top:5px;padding:6px 10px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:7px;font-size:12px;color:#065f46;font-weight:600;"><i class="fa-solid fa-vault" style="margin-right:5px;color:#059669;"></i>Saldo Kas Trios: <span id="edit-cap-kas-saldo-label">Rp 0</span></div>
+                </div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nominal (Rp)</label><div class="inp-rp"><input type="text" inputmode="numeric" id="edit-cap-amount" class="inp rp-input" data-raw="0" style="font-size:16px;font-weight:700;" required></div></div>
                 <div class="warn-box"><p><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Perubahan akan langsung memperbarui total modal kendaraan ini.</p></div>
                 <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border);"><button type="button" onclick="closeModal('modal-edit-capital')" class="btn btn-ghost">Batal</button><button type="submit" id="edit-cap-submit-btn" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Simpan</button></div>
             </form>
@@ -672,8 +735,11 @@
                 <input type="hidden" id="edit-ops-id">
                 <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal</label><input type="date" id="edit-ops-date" class="inp" required></div>
                 <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Keterangan</label><input type="text" id="edit-ops-desc" class="inp" required></div>
-                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Ditanggung oleh</label><select id="edit-ops-paidBy" class="inp" required style="font-size:13px;"><option value="">Pilih Sumber Modal...</option></select></div>
-                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nominal (Rp)</label><input type="number" id="edit-ops-amount" class="inp" style="font-size:16px;font-weight:700;" required min="0"></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Ditanggung oleh</label>
+                    <select id="edit-ops-paidBy" class="inp" required style="font-size:13px;" onchange="onOpsPaidByChange(this.value,'edit-ops-kas-info')"><option value="">Pilih Sumber Modal...</option></select>
+                    <div id="edit-ops-kas-info" style="display:none;margin-top:5px;padding:6px 10px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:7px;font-size:12px;color:#065f46;font-weight:600;"><i class="fa-solid fa-vault" style="margin-right:5px;color:#059669;"></i>Saldo Kas Trios: <span id="edit-ops-kas-saldo-label">Rp 0</span></div>
+                </div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nominal (Rp)</label><div class="inp-rp"><input type="text" inputmode="numeric" id="edit-ops-amount" class="inp rp-input" data-raw="0" style="font-size:16px;font-weight:700;" required></div></div>
                 <div class="warn-box"><p><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Perubahan akan langsung memperbarui total modal kendaraan ini.</p></div>
                 <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border);"><button type="button" onclick="closeModal('modal-edit-ops')" class="btn btn-ghost">Batal</button><button type="submit" id="edit-ops-submit-btn" class="btn btn-warn"><i class="fa-solid fa-floppy-disk"></i> Simpan</button></div>
             </form>
@@ -711,7 +777,7 @@
                 <input type="hidden" id="edit-sale-id">
                 <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Terjual</label><input type="date" id="edit-sale-date" class="inp" required></div>
                 <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nama Pembeli</label><input type="text" id="edit-sale-buyer" class="inp" required></div>
-                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Harga Jual (Rp)</label><input type="number" id="edit-sale-price" class="inp" style="font-size:18px;font-weight:700;color:#059669;" required min="0"></div>
+                <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Harga Jual (Rp)</label><div class="inp-rp"><input type="text" inputmode="numeric" id="edit-sale-price" class="inp rp-input" data-raw="0" style="font-size:18px;font-weight:700;color:#059669;" required></div></div>
                 <div class="warn-box"><p><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Perubahan harga jual akan langsung mempengaruhi perhitungan profit.</p></div>
                 <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border);"><button type="button" onclick="closeModal('modal-edit-sale')" class="btn btn-ghost">Batal</button><button type="submit" id="edit-sale-submit-btn" class="btn btn-success"><i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan</button></div>
             </form>
@@ -765,15 +831,17 @@ const C=(name)=>FB().collection(FB().db,name);
 async function loadAllData(){
     setLoading('Memuat data...');
     try{
-        const[vS,cS,oS,sS,csS]=await Promise.all([
+        const[vS,cS,oS,sS,csS,ksS]=await Promise.all([
             FB().getDocs(C('vehicles')),FB().getDocs(C('capitals')),
-            FB().getDocs(C('operations')),FB().getDocs(C('sales')),FB().getDocs(C('capitalSources'))
+            FB().getDocs(C('operations')),FB().getDocs(C('sales')),FB().getDocs(C('capitalSources')),
+            FB().getDocs(FB().collection(FB().db,'kasTrios'))
         ]);
         vehicles=vS.docs.map(d=>({id:d.id,...d.data()}));
         capitals=cS.docs.map(d=>({id:d.id,...d.data()}));
         operations=oS.docs.map(d=>({id:d.id,...d.data()}));
         sales=sS.docs.map(d=>({id:d.id,...d.data()}));
         capitalSources=csS.docs.map(d=>({id:d.id,...d.data()}));
+        kasList=ksS.docs.map(d=>({id:d.id,...d.data()}));
         if(capitalSources.length===0){
             for(let i=0;i<DEFAULT_SOURCES.length;i++){
                 const ref=await FB().addDoc(C('capitalSources'),{name:DEFAULT_SOURCES[i],desc:'',color:SOURCE_COLORS[i],createdAt:FB().serverTimestamp()});
@@ -899,10 +967,53 @@ function openVehicleFinance(id){
     populateCapSourceDropdown('cap-source');populateCapSourceDropdown('ops-paidBy');refreshFinanceLists();nav('vehicle-finance');
 }
 
+function getKasSaldo(){
+    let sumIn=0,sumOut=0;
+    kasList.forEach(k=>{if(k.type==='masuk')sumIn+=Number(k.amount)||0;else sumOut+=Number(k.amount)||0;});
+    return sumIn-sumOut;
+}
+
 function populateCapSourceDropdown(selId){
     const sel=document.getElementById(selId);
     sel.innerHTML='<option value="">Pilih Sumber Modal...</option>';
     capitalSources.forEach(s=>sel.insertAdjacentHTML('beforeend',`<option value="${s.name}">${s.name}</option>`));
+    // Add Kas Trios to ALL capital source and ops paidBy dropdowns
+    const saldo=getKasSaldo();
+    const label=`Kas Trios${saldo>0?' ('+formatRp(saldo)+')':''}`;
+    sel.insertAdjacentHTML('beforeend',`<option value="KAS_TRIOS" ${saldo<=0?'disabled':''}>🏦 ${label}</option>`);
+}
+
+function onCapSourceChange(val, infoElId){
+    const infoEl=document.getElementById(infoElId);
+    if(!infoEl)return;
+    if(val==='KAS_TRIOS'){
+        const saldo=getKasSaldo();
+        const labelId=infoElId.includes('edit')?'edit-cap-kas-saldo-label':'cap-kas-saldo-label';
+        document.getElementById(labelId).innerText=formatRp(saldo);
+        infoEl.style.display='block';
+        infoEl.style.background=saldo>0?'#ecfdf5':'#fef2f2';
+        infoEl.style.borderColor=saldo>0?'#6ee7b7':'#fca5a5';
+        infoEl.style.color=saldo>0?'#065f46':'#dc2626';
+    }else{
+        infoEl.style.display='none';
+    }
+}
+
+function onOpsPaidByChange(val, infoElId){
+    const infoEl=document.getElementById(infoElId);
+    if(!infoEl)return;
+    if(val==='KAS_TRIOS'){
+        const saldo=getKasSaldo();
+        const labelId=infoElId.includes('edit')?'edit-ops-kas-saldo-label':'ops-kas-saldo-label';
+        document.getElementById(labelId).innerText=formatRp(saldo);
+        infoEl.style.display='block';
+        infoEl.style.background=saldo>0?'#ecfdf5':'#fef2f2';
+        infoEl.style.borderColor=saldo>0?'#6ee7b7':'#fca5a5';
+        infoEl.style.color=saldo>0?'#065f46':'#dc2626';
+        document.getElementById(labelId).previousSibling&&(document.getElementById(labelId).parentElement.querySelector('i').style.color=saldo>0?'#059669':'#dc2626');
+    }else{
+        infoEl.style.display='none';
+    }
 }
 
 function refreshFinanceLists(){
@@ -917,18 +1028,22 @@ function refreshFinanceLists(){
     const caps=capitals.filter(c=>c.vehicleId===currentVehicleId);
     listCap.innerHTML=caps.length===0?'<li style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic;">Belum ada modal tercatat.</li>':'';
     caps.forEach(c=>{
-        const src=capitalSources.find(s=>s.name===c.source),color=src?.color||'#64748b';
+        const isKasTrios=c.source==='KAS_TRIOS';
+        const src=isKasTrios?null:capitalSources.find(s=>s.name===c.source),color=isKasTrios?'#059669':(src?.color||'#64748b');
         const li=document.createElement('li');li.className='list-item-row';
         li.innerHTML=`
             <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
-                <span class="color-swatch" style="background:${color};flex-shrink:0;"></span>
+                ${isKasTrios
+                    ?`<span style="width:12px;height:12px;border-radius:3px;background:#059669;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:7px;color:white;"><i class="fa-solid fa-vault"></i></span>`
+                    :`<span class="color-swatch" style="background:${color};flex-shrink:0;"></span>`
+                }
                 <div style="min-width:0;">
-                    <p style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.source}</p>
+                    <p style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${isKasTrios?'🏦 Kas Trios':c.source}</p>
                     <p style="font-size:11px;color:#94a3b8;">${formatDate(c.date)}</p>
                 </div>
             </div>
             <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                <span style="font-weight:700;font-size:13px;">${formatRp(c.amount)}</span>
+                <span style="font-weight:700;font-size:13px;${isKasTrios?'color:#059669;':''}">${formatRp(c.amount)}</span>
                 ${!isSold?`<div class="item-actions">
                     <button class="icon-btn icon-btn-edit" onclick="openEditCapital('${c.id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
                     <button class="icon-btn icon-btn-del" onclick="openDeleteCapital('${c.id}')" title="Hapus"><i class="fa-solid fa-trash"></i></button>
@@ -942,14 +1057,16 @@ function refreshFinanceLists(){
     const ops=operations.filter(o=>o.vehicleId===currentVehicleId).sort((a,b)=>new Date(b.date)-new Date(a.date));
     listOps.innerHTML=ops.length===0?'<li style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic;">Belum ada biaya operasional.</li>':'';
     ops.forEach(o=>{
-        const src=capitalSources.find(s=>s.name===o.paidBy),srcColor=src?.color||'#f59e0b';
+        const isKasTrios=o.paidBy==='KAS_TRIOS';
+        const src=isKasTrios?null:capitalSources.find(s=>s.name===o.paidBy),srcColor=isKasTrios?'#059669':(src?.color||'#f59e0b');
+        const paidByBadge=o.paidBy?`<span style="display:inline-flex;align-items:center;gap:4px;background:${srcColor}18;border:1px solid ${srcColor}44;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:700;color:${srcColor};">${isKasTrios?'<i class="fa-solid fa-vault" style="font-size:9px;"></i>':''}<span style="width:6px;height:6px;border-radius:50%;background:${srcColor};flex-shrink:0;${isKasTrios?'display:none':''}"></span>${isKasTrios?'Kas Trios':o.paidBy}</span>`:'';
         const li=document.createElement('li');li.className='list-item-row';
         li.innerHTML=`
             <div style="flex:1;min-width:0;">
                 <p style="font-weight:600;font-size:13px;">${o.desc}</p>
                 <div style="display:flex;align-items:center;gap:6px;margin-top:2px;flex-wrap:wrap;">
                     <p style="font-size:11px;color:#94a3b8;">${formatDate(o.date)}</p>
-                    ${o.paidBy?`<span style="display:inline-flex;align-items:center;gap:4px;background:${srcColor}18;border:1px solid ${srcColor}44;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:700;color:${srcColor};"><span style="width:6px;height:6px;border-radius:50%;background:${srcColor};flex-shrink:0;"></span>${o.paidBy}</span>`:''}
+                    ${paidByBadge}
                 </div>
             </div>
             <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
@@ -979,22 +1096,61 @@ function refreshFinanceLists(){
 function openEditCapital(capId){
     const cap=capitals.find(c=>c.id===capId);if(!cap)return;
     document.getElementById('edit-cap-id').value=capId;
-    document.getElementById('edit-cap-amount').value=cap.amount;
+    const amtEl=document.getElementById('edit-cap-amount');
+    amtEl.value=new Intl.NumberFormat('id-ID').format(cap.amount);
+    amtEl.dataset.raw=String(cap.amount);
     populateCapSourceDropdown('edit-cap-source');
     document.getElementById('edit-cap-source').value=cap.source;
     openModal('modal-edit-capital');
+    setTimeout(()=>onCapSourceChange(cap.source||'','edit-cap-kas-info'),60);
 }
 document.getElementById('form-edit-capital').addEventListener('submit',async function(e){
     e.preventDefault();
     const capId=document.getElementById('edit-cap-id').value;
+    const oldCap=capitals.find(c=>c.id===capId);
     const newSource=document.getElementById('edit-cap-source').value;
-    const newAmount=parseInt(document.getElementById('edit-cap-amount').value);
+    const newAmount=parseInt(document.getElementById('edit-cap-amount').dataset.raw||'0');
     if(!newSource){showToast('Pilih sumber modal!','error');return;}
+
+    // Validate Kas Trios balance
+    if(newSource==='KAS_TRIOS'){
+        let availableSaldo=getKasSaldo();
+        if(oldCap?.source==='KAS_TRIOS') availableSaldo+=Number(oldCap.amount); // old will be freed
+        if(newAmount>availableSaldo){showToast(`Saldo Kas Trios tidak cukup! Tersedia: ${formatRp(availableSaldo)}`,'error');return;}
+    }
+
     setBtnLoading('edit-cap-submit-btn',true);
     try{
         await FB().updateDoc(FB().doc(FB().db,'capitals',capId),{source:newSource,amount:newAmount});
         const idx=capitals.findIndex(c=>c.id===capId);
         if(idx!==-1){capitals[idx].source=newSource;capitals[idx].amount=newAmount;}
+
+        // Handle Kas Trios adjustments
+        const oldUsedKas=oldCap?.source==='KAS_TRIOS';
+        const newUsedKas=newSource==='KAS_TRIOS';
+        const linkedKas=kasList.find(k=>k.capRef===capId);
+        const vName=vehicles.find(v=>v.id===oldCap?.vehicleId)?.name||'kendaraan';
+
+        if(oldUsedKas&&newUsedKas){
+            // Both Kas Trios — update linked entry amount
+            if(linkedKas){
+                await FB().updateDoc(FB().doc(FB().db,'kasTrios',linkedKas.id),{amount:newAmount,desc:`Modal: ${vName}`});
+                const ki=kasList.findIndex(k=>k.id===linkedKas.id);
+                if(ki!==-1){kasList[ki].amount=newAmount;}
+            }
+        } else if(oldUsedKas&&!newUsedKas){
+            // Was Kas Trios, now changed — remove linked kas entry (refund)
+            if(linkedKas){
+                await FB().deleteDoc(FB().doc(FB().db,'kasTrios',linkedKas.id));
+                kasList=kasList.filter(k=>k.id!==linkedKas.id);
+            }
+        } else if(!oldUsedKas&&newUsedKas){
+            // Now using Kas Trios — add kas keluar entry
+            const kasRef=await FB().addDoc(FB().collection(FB().db,'kasTrios'),{date:oldCap?.date||new Date().toISOString().split('T')[0],desc:`Modal: ${vName}`,type:'keluar',amount:newAmount,capRef:capId,createdAt:FB().serverTimestamp()});
+            kasList.push({id:kasRef.id,date:oldCap?.date||new Date().toISOString().split('T')[0],desc:`Modal: ${vName}`,type:'keluar',amount:newAmount,capRef:capId,createdAt:new Date()});
+        }
+
+        renderKasSummary();
         closeModal('modal-edit-capital');refreshFinanceLists();showToast('Modal berhasil diperbarui!');
     }catch(err){showToast('Gagal: '+err.message,'error');}
     setBtnLoading('edit-cap-submit-btn',false);
@@ -1009,9 +1165,23 @@ function openDeleteCapital(capId){
 async function confirmDeleteCapital(){
     const capId=document.getElementById('del-cap-id').value;setBtnLoading('del-cap-btn',true);
     try{
+        const cap=capitals.find(c=>c.id===capId);
         await FB().deleteDoc(FB().doc(FB().db,'capitals',capId));
         capitals=capitals.filter(c=>c.id!==capId);
-        closeModal('modal-delete-capital');refreshFinanceLists();showToast('Modal berhasil dihapus!');
+        // Refund Kas Trios if this capital used it
+        if(cap&&cap.source==='KAS_TRIOS'){
+            const linkedKas=kasList.find(k=>k.capRef===capId);
+            if(linkedKas){
+                await FB().deleteDoc(FB().doc(FB().db,'kasTrios',linkedKas.id));
+                kasList=kasList.filter(k=>k.id!==linkedKas.id);
+            } else {
+                const vName=vehicles.find(v=>v.id===cap.vehicleId)?.name||'kendaraan';
+                const refundRef=await FB().addDoc(FB().collection(FB().db,'kasTrios'),{date:new Date().toISOString().split('T')[0],desc:`Refund modal dihapus: ${vName}`,type:'masuk',amount:Number(cap.amount),createdAt:FB().serverTimestamp()});
+                kasList.push({id:refundRef.id,date:new Date().toISOString().split('T')[0],desc:`Refund modal dihapus: ${vName}`,type:'masuk',amount:Number(cap.amount),createdAt:new Date()});
+            }
+            renderKasSummary();
+        }
+        closeModal('modal-delete-capital');refreshFinanceLists();showToast('Modal berhasil dihapus!'+(cap?.source==='KAS_TRIOS'?' (Kas Trios dikembalikan)':''));
     }catch(err){showToast('Gagal: '+err.message,'error');}
     setBtnLoading('del-cap-btn',false);
 }
@@ -1022,24 +1192,65 @@ function openEditOps(opsId){
     document.getElementById('edit-ops-id').value=opsId;
     document.getElementById('edit-ops-date').value=ops.date;
     document.getElementById('edit-ops-desc').value=ops.desc;
-    document.getElementById('edit-ops-amount').value=ops.amount;
+    const amtEl=document.getElementById('edit-ops-amount');
+    amtEl.value=new Intl.NumberFormat('id-ID').format(ops.amount);
+    amtEl.dataset.raw=String(ops.amount);
     populateCapSourceDropdown('edit-ops-paidBy');
     document.getElementById('edit-ops-paidBy').value=ops.paidBy||'';
     openModal('modal-edit-ops');
+    // Show kas info if already set to KAS_TRIOS
+    setTimeout(()=>onOpsPaidByChange(ops.paidBy||'','edit-ops-kas-info'),60);
 }
 document.getElementById('form-edit-ops').addEventListener('submit',async function(e){
     e.preventDefault();
     const opsId=document.getElementById('edit-ops-id').value;
+    const oldOps=operations.find(o=>o.id===opsId);
     const newDate=document.getElementById('edit-ops-date').value;
     const newDesc=document.getElementById('edit-ops-desc').value.trim();
     const newPaidBy=document.getElementById('edit-ops-paidBy').value;
-    const newAmount=parseInt(document.getElementById('edit-ops-amount').value);
+    const newAmount=parseInt(document.getElementById('edit-ops-amount').dataset.raw||'0');
     if(!newPaidBy){showToast('Pilih siapa yang menanggung biaya ini!','error');return;}
+
+    // Kas Trios balance validation for new selection
+    if(newPaidBy==='KAS_TRIOS'){
+        // Calculate available saldo: current saldo + refund if old ops was also Kas Trios
+        let availableSaldo=getKasSaldo();
+        if(oldOps?.paidBy==='KAS_TRIOS') availableSaldo+=Number(oldOps.amount); // old amount will be freed
+        if(newAmount>availableSaldo){showToast(`Saldo Kas Trios tidak cukup! Tersedia: ${formatRp(availableSaldo)}`,'error');return;}
+    }
+
     setBtnLoading('edit-ops-submit-btn',true);
     try{
         await FB().updateDoc(FB().doc(FB().db,'operations',opsId),{date:newDate,desc:newDesc,paidBy:newPaidBy,amount:newAmount});
         const idx=operations.findIndex(o=>o.id===opsId);
         if(idx!==-1){operations[idx].date=newDate;operations[idx].desc=newDesc;operations[idx].paidBy=newPaidBy;operations[idx].amount=newAmount;}
+
+        // Handle Kas Trios adjustments
+        const oldUsedKas=oldOps?.paidBy==='KAS_TRIOS';
+        const newUsedKas=newPaidBy==='KAS_TRIOS';
+        const linkedKas=kasList.find(k=>k.opsRef===opsId);
+
+        if(oldUsedKas&&newUsedKas){
+            // Both use Kas Trios — update the linked kas entry amount
+            if(linkedKas){
+                await FB().updateDoc(FB().doc(FB().db,'kasTrios',linkedKas.id),{amount:newAmount,date:newDate,desc:`Ops: ${newDesc} (${vehicles.find(v=>v.id===oldOps.vehicleId)?.name||'kendaraan'})`});
+                const ki=kasList.findIndex(k=>k.id===linkedKas.id);
+                if(ki!==-1){kasList[ki].amount=newAmount;kasList[ki].date=newDate;}
+            }
+        } else if(oldUsedKas&&!newUsedKas){
+            // Was Kas Trios, now changed to other source — remove linked kas entry
+            if(linkedKas){
+                await FB().deleteDoc(FB().doc(FB().db,'kasTrios',linkedKas.id));
+                kasList=kasList.filter(k=>k.id!==linkedKas.id);
+            }
+        } else if(!oldUsedKas&&newUsedKas){
+            // Was other source, now Kas Trios — add new kas keluar entry
+            const vName=vehicles.find(v=>v.id===oldOps?.vehicleId)?.name||'kendaraan';
+            const kasRef=await FB().addDoc(FB().collection(FB().db,'kasTrios'),{date:newDate,desc:`Ops: ${newDesc} (${vName})`,type:'keluar',amount:newAmount,opsRef:opsId,createdAt:FB().serverTimestamp()});
+            kasList.push({id:kasRef.id,date:newDate,desc:`Ops: ${newDesc} (${vName})`,type:'keluar',amount:newAmount,opsRef:opsId,createdAt:new Date()});
+        }
+
+        renderKasSummary();
         closeModal('modal-edit-ops');refreshFinanceLists();showToast('Biaya operasional diperbarui!');
     }catch(err){showToast('Gagal: '+err.message,'error');}
     setBtnLoading('edit-ops-submit-btn',false);
@@ -1054,9 +1265,25 @@ function openDeleteOps(opsId){
 async function confirmDeleteOps(){
     const opsId=document.getElementById('del-ops-id').value;setBtnLoading('del-ops-btn',true);
     try{
+        const ops=operations.find(o=>o.id===opsId);
         await FB().deleteDoc(FB().doc(FB().db,'operations',opsId));
         operations=operations.filter(o=>o.id!==opsId);
-        closeModal('modal-delete-ops');refreshFinanceLists();showToast('Biaya operasional dihapus!');
+        // Refund Kas Trios if this ops used it
+        if(ops&&ops.paidBy==='KAS_TRIOS'){
+            // Remove the linked kasTrios entry
+            const linkedKas=kasList.find(k=>k.opsRef===opsId);
+            if(linkedKas){
+                await FB().deleteDoc(FB().doc(FB().db,'kasTrios',linkedKas.id));
+                kasList=kasList.filter(k=>k.id!==linkedKas.id);
+            } else {
+                // If no linked entry found, add a refund masuk entry
+                const vName=vehicles.find(v=>v.id===ops.vehicleId)?.name||'kendaraan';
+                const refundRef=await FB().addDoc(FB().collection(FB().db,'kasTrios'),{date:new Date().toISOString().split('T')[0],desc:`Refund ops dihapus: ${ops.desc} (${vName})`,type:'masuk',amount:Number(ops.amount),createdAt:FB().serverTimestamp()});
+                kasList.push({id:refundRef.id,date:new Date().toISOString().split('T')[0],desc:`Refund ops dihapus: ${ops.desc}`,type:'masuk',amount:Number(ops.amount),createdAt:new Date()});
+            }
+            renderKasSummary();
+        }
+        closeModal('modal-delete-ops');refreshFinanceLists();showToast('Biaya operasional dihapus!'+(ops?.paidBy==='KAS_TRIOS'?' (Kas Trios dikembalikan)':''));
     }catch(err){showToast('Gagal: '+err.message,'error');}
     setBtnLoading('del-ops-btn',false);
 }
@@ -1066,13 +1293,28 @@ document.getElementById('form-add-capital').addEventListener('submit',async func
     e.preventDefault();
     const source=document.getElementById('cap-source').value;
     if(!source){showToast('Pilih sumber modal!','error');return;}
+    const amount=parseInt(document.getElementById('cap-amount').dataset.raw||'0');
+    if(source==='KAS_TRIOS'){
+        const saldo=getKasSaldo();
+        if(amount>saldo){showToast(`Saldo Kas Trios tidak cukup! Saldo: ${formatRp(saldo)}`,'error');return;}
+    }
     setBtnLoading('cap-submit-btn',true);
     try{
         const today=new Date().toISOString().split('T')[0];
-        const newCap={vehicleId:currentVehicleId,source,amount:parseInt(document.getElementById('cap-amount').value),date:today,createdAt:FB().serverTimestamp()};
+        const newCap={vehicleId:currentVehicleId,source,amount,date:today,createdAt:FB().serverTimestamp()};
         const docRef=await FB().addDoc(C('capitals'),newCap);
         capitals.push({id:docRef.id,...newCap,createdAt:new Date()});
-        this.reset();refreshFinanceLists();showToast('Modal berhasil ditambahkan!');
+        // Deduct Kas Trios if used
+        if(source==='KAS_TRIOS'){
+            const vName=vehicles.find(v=>v.id===currentVehicleId)?.name||'kendaraan';
+            const kasDesc=`Modal: ${vName}`;
+            const kasRef=await FB().addDoc(FB().collection(FB().db,'kasTrios'),{date:today,desc:kasDesc,type:'keluar',amount,capRef:docRef.id,createdAt:FB().serverTimestamp()});
+            kasList.push({id:kasRef.id,date:today,desc:kasDesc,type:'keluar',amount,capRef:docRef.id,createdAt:new Date()});
+            renderKasSummary();
+        }
+        this.reset();
+        document.getElementById('cap-kas-info').style.display='none';
+        refreshFinanceLists();showToast('Modal berhasil ditambahkan!'+(source==='KAS_TRIOS'?` (Kas Trios -${formatRp(amount)})`:''));
     }catch(err){showToast('Gagal: '+err.message,'error');}
     setBtnLoading('cap-submit-btn',false);
 });
@@ -1080,13 +1322,26 @@ document.getElementById('form-add-ops').addEventListener('submit',async function
     e.preventDefault();
     const paidBy=document.getElementById('ops-paidBy').value;
     if(!paidBy){showToast('Pilih siapa yang menanggung biaya ini!','error');return;}
+    const amount=parseInt(document.getElementById('ops-amount').dataset.raw||'0');
+    // Validate Kas Trios balance
+    if(paidBy==='KAS_TRIOS'){
+        const saldo=getKasSaldo();
+        if(amount>saldo){showToast(`Saldo Kas Trios tidak cukup! Saldo: ${formatRp(saldo)}`,'error');return;}
+    }
     setBtnLoading('ops-submit-btn',true);
     try{
-        const newOps={vehicleId:currentVehicleId,desc:document.getElementById('ops-desc').value.trim(),amount:parseInt(document.getElementById('ops-amount').value),date:document.getElementById('ops-date').value,paidBy,createdAt:FB().serverTimestamp()};
+        const newOps={vehicleId:currentVehicleId,desc:document.getElementById('ops-desc').value.trim(),amount,date:document.getElementById('ops-date').value,paidBy,createdAt:FB().serverTimestamp()};
         const docRef=await FB().addDoc(C('operations'),newOps);
         operations.push({id:docRef.id,...newOps,createdAt:new Date()});
+        // Deduct from Kas Trios if used
+        if(paidBy==='KAS_TRIOS'){
+            const kasDesc=`Ops: ${newOps.desc} (${vehicles.find(v=>v.id===currentVehicleId)?.name||'kendaraan'})`;
+            const kasRef=await FB().addDoc(FB().collection(FB().db,'kasTrios'),{date:newOps.date,desc:kasDesc,type:'keluar',amount,opsRef:docRef.id,createdAt:FB().serverTimestamp()});
+            kasList.push({id:kasRef.id,date:newOps.date,desc:kasDesc,type:'keluar',amount,opsRef:docRef.id,createdAt:new Date()});
+        }
         this.reset();document.getElementById('ops-date').valueAsDate=new Date();
-        refreshFinanceLists();showToast('Biaya operasional tercatat!');
+        document.getElementById('ops-kas-info').style.display='none';
+        refreshFinanceLists();renderKasSummary();showToast('Biaya operasional tercatat!'+(paidBy==='KAS_TRIOS'?` (Kas Trios -${formatRp(amount)})`:''));
     }catch(err){showToast('Gagal: '+err.message,'error');}
     setBtnLoading('ops-submit-btn',false);
 });
@@ -1114,7 +1369,7 @@ function openSellModal(id){
 document.getElementById('form-sell-vehicle').addEventListener('submit',async function(e){
     e.preventDefault();const id=document.getElementById('sell-veh-id').value;setBtnLoading('sell-submit-btn',true);
     try{
-        const price=parseInt(document.getElementById('sell-price').value),date=document.getElementById('sell-date').value,buyer=document.getElementById('sell-buyer').value.trim();
+        const price=parseInt(document.getElementById('sell-price').dataset.raw||'0'),date=document.getElementById('sell-date').value,buyer=document.getElementById('sell-buyer').value.trim();
         await FB().updateDoc(FB().doc(FB().db,'vehicles',id),{status:'terjual'});
         const vIdx=vehicles.findIndex(v=>v.id===id);if(vIdx!==-1)vehicles[vIdx].status='terjual';
         const newSale={vehicleId:id,date,buyer,price,createdAt:FB().serverTimestamp()};
@@ -1193,7 +1448,9 @@ function openEditSale(saleId){
     document.getElementById('edit-sale-veh-name').innerText=v?.name||'-';
     document.getElementById('edit-sale-date').value=s.date;
     document.getElementById('edit-sale-buyer').value=s.buyer||'';
-    document.getElementById('edit-sale-price').value=s.price;
+    const priceEl=document.getElementById('edit-sale-price');
+    priceEl.value=new Intl.NumberFormat('id-ID').format(s.price);
+    priceEl.dataset.raw=String(s.price);
     openModal('modal-edit-sale');
 }
 document.getElementById('form-edit-sale').addEventListener('submit',async function(e){
@@ -1201,7 +1458,7 @@ document.getElementById('form-edit-sale').addEventListener('submit',async functi
     const saleId=document.getElementById('edit-sale-id').value;
     const newDate=document.getElementById('edit-sale-date').value;
     const newBuyer=document.getElementById('edit-sale-buyer').value.trim();
-    const newPrice=parseInt(document.getElementById('edit-sale-price').value);
+    const newPrice=parseInt(document.getElementById('edit-sale-price').dataset.raw||'0');
     setBtnLoading('edit-sale-submit-btn',true);
     try{
         await FB().updateDoc(FB().doc(FB().db,'sales',saleId),{date:newDate,buyer:newBuyer,price:newPrice});
@@ -1248,7 +1505,6 @@ function renderCapitalSources(){
     const sourceAmounts={};capitalSources.forEach(s=>{sourceAmounts[s.name]=0;});
     capitals.forEach(c=>{if(sourceAmounts.hasOwnProperty(c.source))sourceAmounts[c.source]+=Number(c.amount)||0;});
     const totalAll=Object.values(sourceAmounts).reduce((a,b)=>a+b,0);
-    document.getElementById('cs-total-amount').innerText=formatRp(totalAll);
     let topSource='-',topAmt=0;
     Object.entries(sourceAmounts).forEach(([name,amt])=>{if(amt>topAmt){topAmt=amt;topSource=name;}});
     document.getElementById('cs-top-source').innerText=topSource+(topAmt>0?` (${formatRp(topAmt)})`:'');
@@ -1264,9 +1520,7 @@ function renderCapitalSources(){
         list.style.display='flex';empty.style.display='none';
         capitalSources.forEach((s,i)=>{
             const color=s.color||SOURCE_COLORS[i%SOURCE_COLORS.length];
-            const opsAmt=sourceOps[s.name]||0;
-            const capAmt=sourceAmounts[s.name]||0;
-            list.insertAdjacentHTML('beforeend',`<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:#fafbfc;border:1px solid #e2e8f0;border-radius:10px;"><div style="width:36px;height:36px;border-radius:8px;background:${color}22;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span class="color-swatch" style="background:${color};width:14px;height:14px;border-radius:4px;"></span></div><div style="flex:1;min-width:0;"><p style="font-weight:700;font-size:14px;margin-bottom:2px;">${s.name}</p><p style="font-size:11px;color:#94a3b8;margin-bottom:6px;">${s.desc||'Tidak ada keterangan'}</p><div style="display:flex;flex-wrap:wrap;gap:6px;"><span style="font-size:11px;background:#dbeafe;color:#1d4ed8;border-radius:6px;padding:2px 8px;font-weight:600;"><i class="fa-solid fa-hand-holding-dollar" style="margin-right:3px;font-size:10px;"></i>Modal: ${formatRp(capAmt)}</span><span style="font-size:11px;background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 8px;font-weight:600;"><i class="fa-solid fa-wrench" style="margin-right:3px;font-size:10px;"></i>Ops: ${formatRp(opsAmt)}</span></div></div><div style="text-align:right;flex-shrink:0;"><p style="font-size:12px;color:#64748b;font-weight:600;">${formatRp(capAmt)}</p><button onclick="openDeleteSourceModal('${s.id}','${s.name.replace(/'/g,"&#39;")}')" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:11px;margin-top:2px;"><i class="fa-solid fa-trash"></i></button></div></div>`);
+            list.insertAdjacentHTML('beforeend',`<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fafbfc;border:1px solid #e2e8f0;border-radius:10px;"><div style="width:36px;height:36px;border-radius:8px;background:${color}22;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span class="color-swatch" style="background:${color};width:14px;height:14px;border-radius:4px;"></span></div><div style="flex:1;min-width:0;"><p style="font-weight:700;font-size:14px;margin-bottom:2px;">${s.name}</p><p style="font-size:11px;color:#94a3b8;">${s.desc||'Tidak ada keterangan'}</p></div><div style="flex-shrink:0;"><button onclick="openDeleteSourceModal('${s.id}','${s.name.replace(/'/g,"&#39;")}')" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:11px;"><i class="fa-solid fa-trash"></i></button></div></div>`);
         });
     }
     const breakdown=document.getElementById('sources-breakdown'),bEmpty=document.getElementById('sources-breakdown-empty');
@@ -1280,6 +1534,8 @@ function renderCapitalSources(){
             breakdown.insertAdjacentHTML('beforeend',`<div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div style="display:flex;align-items:center;gap:8px;"><span class="color-swatch" style="background:${color};"></span><span style="font-size:13px;font-weight:600;">${name}</span></div><div style="text-align:right;"><span style="font-size:13px;font-weight:700;">${formatRp(amt)}</span><span style="font-size:11px;color:#94a3b8;margin-left:6px;">${pct}%</span></div></div><div class="cap-progress"><div class="cap-progress-fill" style="width:${pct}%;background:${color};"></div></div>${opsAmt>0?`<p style="font-size:11px;color:#f59e0b;font-weight:600;margin-top:4px;"><i class="fa-solid fa-wrench" style="margin-right:3px;"></i>Biaya operasional: ${formatRp(opsAmt)}</p>`:''}</div>`);
         });
     }
+    renderKasSummary();
+    renderSoldLog();
 }
 document.getElementById('form-add-source').addEventListener('submit',async function(e){
     e.preventDefault();
@@ -1309,13 +1565,266 @@ async function confirmDeleteSource(){
 // ===== INIT =====
 document.addEventListener('firebase-ready',async()=>{
     await loadAllData();
+    await loadKas();
     const now=new Date();
     document.getElementById('veh-date').valueAsDate=now;
+    document.getElementById('kas-date').valueAsDate=now;
     document.getElementById('topbar-date').innerText=now.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     if(window.innerWidth<=768)document.getElementById('menu-btn').style.display='block';
     nav('dashboard');
 });
+
+// ===== KAS TRIOS =====
+let kasList=[];
+
+async function loadKas(){
+    try{
+        const ks=await FB().getDocs(FB().collection(FB().db,'kasTrios'));
+        kasList=ks.docs.map(d=>({id:d.id,...d.data()}));
+    }catch(e){kasList=[];}
+}
+
+function renderKasSummary(){
+    let sumIn=0,sumOut=0;
+    kasList.forEach(k=>{
+        if(k.type==='masuk')sumIn+=Number(k.amount)||0;
+        else sumOut+=Number(k.amount)||0;
+    });
+    document.getElementById('cs-kas-total').innerText=formatRp(sumIn-sumOut);
+    if(document.getElementById('kas-sum-in'))document.getElementById('kas-sum-in').innerText=formatRp(sumIn);
+    if(document.getElementById('kas-sum-out'))document.getElementById('kas-sum-out').innerText=formatRp(sumOut);
+    if(document.getElementById('kas-saldo'))document.getElementById('kas-saldo').innerText=formatRp(sumIn-sumOut);
+}
+
+function renderKasTable(){
+    const tbody=document.getElementById('kas-table-body'),empty=document.getElementById('kas-empty');
+    tbody.innerHTML='';
+    const sorted=[...kasList].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    if(sorted.length===0){empty.style.display='block';}
+    else{
+        empty.style.display='none';
+        sorted.forEach(k=>{
+            const isMasuk=k.type==='masuk';
+            const tr=document.createElement('tr');
+            tr.innerHTML=`<td style="color:#64748b;">${formatDate(k.date)}</td><td style="font-weight:600;">${k.desc}</td><td><span class="badge" style="background:${isMasuk?'#d1fae5':'#fee2e2'};color:${isMasuk?'#059669':'#dc2626'};">${isMasuk?'Masuk':'Keluar'}</span></td><td style="text-align:right;font-weight:700;color:${isMasuk?'#059669':'#dc2626'};">${isMasuk?'+':'-'}${formatRp(k.amount)}</td><td style="text-align:center;"><button onclick="deleteKas('${k.id}')" class="icon-btn icon-btn-del"><i class="fa-solid fa-trash"></i></button></td>`;
+            tbody.appendChild(tr);
+        });
+    }
+    renderKasSummary();
+}
+
+document.getElementById('form-add-kas').addEventListener('submit',async function(e){
+    e.preventDefault();
+    setBtnLoading('kas-submit-btn',true);
+    try{
+        const amountEl=document.getElementById('kas-amount');
+        const raw=parseInt(amountEl.dataset.raw||'0')||0;
+        const newKas={date:document.getElementById('kas-date').value,desc:document.getElementById('kas-desc').value.trim(),type:document.getElementById('kas-type').value,amount:raw,createdAt:FB().serverTimestamp()};
+        const docRef=await FB().addDoc(FB().collection(FB().db,'kasTrios'),newKas);
+        kasList.push({id:docRef.id,...newKas,createdAt:new Date()});
+        this.reset();document.getElementById('kas-date').valueAsDate=new Date();amountEl.value='';amountEl.dataset.raw='0';
+        renderKasTable();showToast('Kas berhasil dicatat!');
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+    setBtnLoading('kas-submit-btn',false);
+});
+
+async function deleteKas(id){
+    if(!confirm('Hapus entri kas ini?'))return;
+    try{
+        await FB().deleteDoc(FB().doc(FB().db,'kasTrios',id));
+        kasList=kasList.filter(k=>k.id!==id);
+        renderKasTable();showToast('Kas dihapus!');
+    }catch(err){showToast('Gagal: '+err.message,'error');}
+}
+
+// ===== SOLD LOG =====
+function renderSoldLog(){
+    const tbody=document.getElementById('sold-log-body'),empty=document.getElementById('sold-log-empty');
+    tbody.innerHTML='';
+    const soldSales=sales.filter(s=>{const v=vehicles.find(v=>v.id===s.vehicleId);return v&&v.status==='terjual';}).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    if(soldSales.length===0){empty.style.display='block';return;}
+    empty.style.display='none';
+    soldSales.forEach(s=>{
+        const v=vehicles.find(v=>v.id===s.vehicleId);
+        const fin=getVehicleFinance(s.vehicleId);
+        const pc=fin.profit>=0?'#059669':'#dc2626';
+        const tr=document.createElement('tr');
+        tr.innerHTML=`
+            <td><p style="font-weight:600;font-size:13px;">${v?.name||'-'}</p><p style="font-size:11px;color:#94a3b8;" class="mono">${v?.plate||''}</p></td>
+            <td style="color:#64748b;font-size:13px;">${formatDate(s.date)}</td>
+            <td style="font-size:13px;">${s.buyer||'-'}</td>
+            <td style="font-weight:600;">${formatRp(fin.totalCost)}</td>
+            <td style="font-weight:700;color:#059669;">${formatRp(s.price)}</td>
+            <td style="text-align:right;font-weight:800;color:${pc};">${formatRp(fin.profit)}</td>
+            <td style="text-align:center;"><button onclick="openSoldDetail('${s.vehicleId}')" class="btn btn-primary btn-sm"><i class="fa-solid fa-eye"></i> Lihat</button></td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+function openSoldDetail(vehicleId){
+    const v=vehicles.find(v=>v.id===vehicleId);if(!v)return;
+    const fin=getVehicleFinance(vehicleId);
+    const sale=fin.sale;
+    const caps=capitals.filter(c=>c.vehicleId===vehicleId);
+    const ops=operations.filter(o=>o.vehicleId===vehicleId).sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+    // Vehicle info
+    document.getElementById('sd-veh-info').innerHTML=`
+        <div style="display:flex;gap:14px;align-items:center;">
+            <img src="${v.photo||DEFAULT_IMG}" onerror="this.src='${DEFAULT_IMG}'" style="width:72px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--border);flex-shrink:0;">
+            <div>
+                <p style="font-weight:800;font-size:16px;margin-bottom:2px;">${v.name}</p>
+                <p style="font-size:12px;color:#64748b;" class="mono">${v.plate} • ${v.brand} ${v.year}</p>
+                <p style="font-size:12px;color:#94a3b8;margin-top:2px;">Pembeli: <strong style="color:#374151;">${sale?.buyer||'-'}</strong> • Terjual: <strong style="color:#374151;">${formatDate(sale?.date)}</strong></p>
+            </div>
+        </div>`;
+
+    // Summary
+    const pc=fin.profit>=0;
+    document.getElementById('sd-summary').innerHTML=`
+        <div style="background:#eff6ff;border-radius:8px;padding:12px;text-align:center;">
+            <p style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px;">Total Modal</p>
+            <p style="font-size:16px;font-weight:800;color:#dc2626;">${formatRp(fin.totalCost)}</p>
+            <p style="font-size:10px;color:#94a3b8;margin-top:2px;">Modal: ${formatRp(fin.totalCapital)} | Ops: ${formatRp(fin.totalOps)}</p>
+        </div>
+        <div style="background:#f0fdf4;border-radius:8px;padding:12px;text-align:center;">
+            <p style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px;">Harga Jual</p>
+            <p style="font-size:16px;font-weight:800;color:#059669;">${formatRp(sale?.price)}</p>
+        </div>
+        <div style="background:${pc?'#f0fdf4':'#fef2f2'};border-radius:8px;padding:12px;text-align:center;">
+            <p style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px;">Profit</p>
+            <p style="font-size:16px;font-weight:800;color:${pc?'#059669':'#dc2626'};">${formatRp(fin.profit)}</p>
+        </div>`;
+
+    // Capital detail
+    const capEl=document.getElementById('sd-capitals');
+    capEl.innerHTML='';
+    if(caps.length===0){capEl.innerHTML='<p style="color:#94a3b8;font-size:13px;font-style:italic;">Tidak ada modal tercatat.</p>';}
+    else{
+        caps.forEach(c=>{
+            const isKasTrios=c.source==='KAS_TRIOS';
+            const src=isKasTrios?null:capitalSources.find(s=>s.name===c.source),color=isKasTrios?'#059669':(src?.color||'#3b82f6');
+            capEl.insertAdjacentHTML('beforeend',`
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fafbfc;border:1px solid #e2e8f0;border-radius:8px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+                        <span style="font-size:13px;font-weight:600;">${isKasTrios?'🏦 Kas Trios':c.source}</span>
+                        <span style="font-size:11px;color:#94a3b8;">${formatDate(c.date)}</span>
+                    </div>
+                    <span style="font-size:13px;font-weight:700;color:${isKasTrios?'#059669':'#1d4ed8'};">${formatRp(c.amount)}</span>
+                </div>`);
+        });
+        const capTotal=caps.reduce((s,c)=>s+Number(c.amount),0);
+        capEl.insertAdjacentHTML('beforeend',`<div style="display:flex;justify-content:flex-end;padding:6px 12px;"><span style="font-size:13px;font-weight:800;color:#374151;">Total: ${formatRp(capTotal)}</span></div>`);
+    }
+
+    // Ops detail
+    const opsEl=document.getElementById('sd-ops'),opsEmpty=document.getElementById('sd-ops-empty');
+    opsEl.innerHTML='';
+    if(ops.length===0){opsEl.style.display='none';opsEmpty.style.display='block';}
+    else{
+        opsEl.style.display='flex';opsEmpty.style.display='none';
+        ops.forEach(o=>{
+            const isKasTrios=o.paidBy==='KAS_TRIOS';
+            const src=isKasTrios?null:capitalSources.find(s=>s.name===o.paidBy),color=isKasTrios?'#059669':(src?.color||'#f59e0b');
+            const paidByBadge=o.paidBy?`<span style="display:inline-flex;align-items:center;gap:4px;background:${color}18;border:1px solid ${color}44;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:700;color:${color};">${isKasTrios?'<i class="fa-solid fa-vault" style="font-size:9px;"></i> Kas Trios':o.paidBy}</span>`:'';
+            opsEl.insertAdjacentHTML('beforeend',`
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;">
+                    <div style="flex:1;min-width:0;">
+                        <p style="font-size:13px;font-weight:600;margin-bottom:2px;">${o.desc}</p>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                            <span style="font-size:11px;color:#94a3b8;">${formatDate(o.date)}</span>
+                            ${paidByBadge}
+                        </div>
+                    </div>
+                    <span style="font-size:13px;font-weight:700;color:#f59e0b;flex-shrink:0;margin-left:10px;">${formatRp(o.amount)}</span>
+                </div>`);
+        });
+        const opsTotal=ops.reduce((s,o)=>s+Number(o.amount),0);
+        opsEl.insertAdjacentHTML('beforeend',`<div style="display:flex;justify-content:flex-end;padding:6px 12px;"><span style="font-size:13px;font-weight:800;color:#374151;">Total: ${formatRp(opsTotal)}</span></div>`);
+        // Per-source ops summary
+        const opsBySource={};
+        ops.forEach(o=>{if(o.paidBy)opsBySource[o.paidBy]=(opsBySource[o.paidBy]||0)+Number(o.amount);});
+        if(Object.keys(opsBySource).length>1){
+            const summaryHtml=Object.entries(opsBySource).sort((a,b)=>b[1]-a[1]).map(([name,amt])=>{
+                const isKT=name==='KAS_TRIOS';
+                const src=isKT?null:capitalSources.find(s=>s.name===name),color=isKT?'#059669':(src?.color||'#f59e0b');
+                const label=isKT?'🏦 Kas Trios':name;
+                return `<span style="display:inline-flex;align-items:center;gap:5px;background:${color}14;border:1px solid ${color}33;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:600;color:${color};">${label}: ${formatRp(amt)}</span>`;
+            }).join('');
+            opsEl.insertAdjacentHTML('beforeend',`<div style="padding:8px 12px;background:#fffbeb;border-radius:8px;border:1px solid #fde68a;"><p style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px;"><i class="fa-solid fa-chart-pie" style="margin-right:4px;"></i>Rekap per Sumber Modal</p><div style="display:flex;flex-wrap:wrap;gap:6px;">${summaryHtml}</div></div>`);
+        }
+    }
+
+    openModal('modal-sold-detail');
+}
+
+// ===== CS TAB SWITCHER =====
+function switchCsTab(tab){
+    ['sources','kas','sold-log'].forEach(t=>{
+        const el=document.getElementById('cs-tab-'+t);
+        if(el)el.style.display=t===tab?'block':'none';
+    });
+    document.querySelectorAll('#capital-sources .filter-tab').forEach((b,i)=>{
+        b.classList.toggle('active',['sources','kas','sold-log'][i]===tab);
+    });
+    if(tab==='kas'&&kasList.length===0){loadKas().then(()=>renderKasTable());}
+    else if(tab==='kas'){renderKasTable();}
+    else if(tab==='sold-log'){renderSoldLog();}
+}
+
+// ===== RUPIAH INPUT AUTO FORMAT =====
+function initRpInputs(){
+    document.querySelectorAll('.rp-input').forEach(inp=>{
+        if(inp.dataset.rpInit)return;
+        inp.dataset.rpInit='1';
+        inp.addEventListener('input',function(){
+            const raw=this.value.replace(/\D/g,'');
+            this.dataset.raw=raw||'0';
+            if(raw===''){this.value='';return;}
+            this.value=new Intl.NumberFormat('id-ID').format(parseInt(raw));
+        });
+        inp.addEventListener('focus',function(){
+            if(this.value==='0'||this.value==='')this.value='';
+        });
+    });
+}
+const _origOpenModal=window.openModal;
+window.openModal=function(id){
+    _origOpenModal(id);
+    setTimeout(initRpInputs,50);
+};
+document.addEventListener('DOMContentLoaded',initRpInputs);
+setTimeout(initRpInputs,500);
+
 setTimeout(()=>{if(!window._firebaseReady){hideLoading();showToast('Koneksi Firebase timeout!','error');}},8000);
 </script>
+<!-- Modal Detail Log Mobil Terjual -->
+<div id="modal-sold-detail" class="modal-backdrop">
+    <div class="modal-box" style="max-width:600px;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#f0fdf4;display:flex;justify-content:space-between;align-items:center;">
+            <h3 style="font-weight:700;font-size:16px;color:#14532d;"><i class="fa-solid fa-car" style="margin-right:8px;"></i>Detail Transaksi</h3>
+            <button onclick="closeModal('modal-sold-detail')" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div style="padding:20px;overflow-y:auto;max-height:70vh;">
+            <!-- Vehicle info -->
+            <div id="sd-veh-info" style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;"></div>
+            <!-- Summary row -->
+            <div id="sd-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;"></div>
+            <!-- Capital detail -->
+            <div style="margin-bottom:16px;">
+                <p style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;"><i class="fa-solid fa-hand-holding-dollar" style="color:#f59e0b;margin-right:5px;"></i>Rincian Modal Awal</p>
+                <div id="sd-capitals" style="display:flex;flex-direction:column;gap:6px;"></div>
+            </div>
+            <!-- Ops detail -->
+            <div>
+                <p style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;"><i class="fa-solid fa-wrench" style="color:#f59e0b;margin-right:5px;"></i>Rincian Biaya Operasional</p>
+                <div id="sd-ops" style="display:flex;flex-direction:column;gap:6px;"></div>
+                <div id="sd-ops-empty" style="color:#94a3b8;font-size:13px;font-style:italic;padding:8px 0;display:none;">Tidak ada biaya operasional.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
