@@ -221,7 +221,9 @@
         /* ===== STICKY FIRST COLUMN (mobile only) ===== */
         @media(max-width:768px){
             #report-table th:first-child,
-            #report-table td:first-child {
+            #report-table td:first-child,
+            #cs-tab-sold-log table thead tr th:first-child,
+            #cs-tab-sold-log table tbody tr td:first-child {
                 position: sticky;
                 left: 0;
                 z-index: 2;
@@ -230,11 +232,13 @@
                 min-width: 130px;
                 max-width: 150px;
             }
-            #report-table thead th:first-child {
+            #report-table thead th:first-child,
+            #cs-tab-sold-log table thead tr th:first-child {
                 background: #f8fafc;
                 z-index: 3;
             }
-            #report-table tr:hover td:first-child {
+            #report-table tr:hover td:first-child,
+            #cs-tab-sold-log table tbody tr:hover td:first-child {
                 background: #fafbfc;
             }
         }
@@ -417,25 +421,52 @@
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
                 <h2 style="font-size:20px;font-weight:800;">Laporan Finansial & Profit</h2>
                 <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                    <div class="filter-tabs">
-                        <button class="filter-tab active" onclick="setFilter('today')">Hari Ini</button>
-                        <button class="filter-tab" onclick="setFilter('month')">Bulan Ini</button>
-                        <button class="filter-tab" onclick="setFilter('year')">Tahun Ini</button>
-                        <button class="filter-tab" onclick="setFilter('custom')">Custom</button>
+                    <div class="filter-tabs" id="dash-filter-tabs">
+                        <button class="filter-tab active" onclick="setFilter('all')" data-f="all">Semua</button>
+                        <button class="filter-tab" onclick="setFilter('month')" data-f="month">Bulan Ini</button>
+                        <button class="filter-tab" onclick="setFilter('6month')" data-f="6month">6 Bulan</button>
+                        <button class="filter-tab" onclick="setFilter('custom')" data-f="custom">Custom</button>
                     </div>
                     <div id="custom-range" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <input type="date" id="filter-start" class="inp inp-sm" style="width:auto;">
-                        <span style="font-size:12px;color:#94a3b8;">s/d</span>
-                        <input type="date" id="filter-end" class="inp inp-sm" style="width:auto;">
+                        <span style="font-size:12px;color:#64748b;font-weight:600;">Pilih Bulan:</span>
+                        <input type="month" id="filter-month" class="inp inp-sm" style="width:auto;">
                         <button onclick="renderDashboard()" class="btn btn-primary btn-sm"><i class="fa-solid fa-filter"></i> Terapkan</button>
                     </div>
                 </div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
-                <div class="stat-card" style="border-left:4px solid #3b82f6;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Unit Terjual</p><h3 id="dash-unit" style="font-size:28px;font-weight:800;">0</h3></div><div style="width:44px;height:44px;border-radius:10px;background:#eff6ff;display:flex;align-items:center;justify-content:center;color:#3b82f6;"><i class="fa-solid fa-car"></i></div></div></div>
-                <div class="stat-card" style="border-left:4px solid #f59e0b;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Modal Induk</p><h3 id="dash-modal" style="font-size:18px;font-weight:800;">Rp 0</h3></div><div style="width:44px;height:44px;border-radius:10px;background:#fffbeb;display:flex;align-items:center;justify-content:center;color:#f59e0b;"><i class="fa-solid fa-coins"></i></div></div></div>
-                <div class="stat-card" style="border-left:4px solid #8b5cf6;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Pendapatan</p><h3 id="dash-omset" style="font-size:18px;font-weight:800;">Rp 0</h3></div><div style="width:44px;height:44px;border-radius:10px;background:#f5f3ff;display:flex;align-items:center;justify-content:center;color:#8b5cf6;"><i class="fa-solid fa-wallet"></i></div></div></div>
-                <div class="stat-card" style="border-left:4px solid #059669;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Profit Bersih</p><h3 id="dash-profit" style="font-size:18px;font-weight:800;color:#059669;">Rp 0</h3></div><div style="width:44px;height:44px;border-radius:10px;background:#ecfdf5;display:flex;align-items:center;justify-content:center;color:#059669;"><i class="fa-solid fa-chart-pie"></i></div></div></div>
+            <!-- Stat Cards -->
+            <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                <button onclick="toggleStatCustomizer()" id="btn-stat-customize" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:white;color:#64748b;transition:all 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
+                    <i class="fa-solid fa-sliders"></i> Atur Tampilan
+                </button>
+            </div>
+            <!-- Stat Customizer Dropdown -->
+            <div id="stat-customizer" style="display:none;background:white;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+                <p style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;"><i class="fa-solid fa-eye" style="margin-right:6px;color:#3b82f6;"></i>Pilih kartu yang ingin ditampilkan</p>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                    <label style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;font-size:13px;font-weight:600;background:#eff6ff;color:#1d4ed8;transition:all 0.15s;" id="lbl-stat-unit">
+                        <input type="checkbox" id="chk-stat-unit" checked onchange="applyStatVisibility()" style="accent-color:#3b82f6;width:15px;height:15px;">
+                        <i class="fa-solid fa-car"></i> Unit Terjual
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;font-size:13px;font-weight:600;background:#fffbeb;color:#b45309;transition:all 0.15s;" id="lbl-stat-modal">
+                        <input type="checkbox" id="chk-stat-modal" checked onchange="applyStatVisibility()" style="accent-color:#f59e0b;width:15px;height:15px;">
+                        <i class="fa-solid fa-coins"></i> Total Modal Induk
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;font-size:13px;font-weight:600;background:#f5f3ff;color:#6d28d9;transition:all 0.15s;" id="lbl-stat-omset">
+                        <input type="checkbox" id="chk-stat-omset" checked onchange="applyStatVisibility()" style="accent-color:#8b5cf6;width:15px;height:15px;">
+                        <i class="fa-solid fa-wallet"></i> Total Pendapatan
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;font-size:13px;font-weight:600;background:#ecfdf5;color:#065f46;transition:all 0.15s;" id="lbl-stat-profit">
+                        <input type="checkbox" id="chk-stat-profit" checked onchange="applyStatVisibility()" style="accent-color:#059669;width:15px;height:15px;">
+                        <i class="fa-solid fa-chart-pie"></i> Total Profit Bersih
+                    </label>
+                </div>
+            </div>
+            <div id="stat-cards-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
+                <div class="stat-card" id="card-stat-unit" style="border-left:4px solid #3b82f6;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Unit Terjual</p><h3 id="dash-unit" style="font-size:28px;font-weight:800;">0</h3></div><div style="width:44px;height:44px;border-radius:10px;background:#eff6ff;display:flex;align-items:center;justify-content:center;color:#3b82f6;"><i class="fa-solid fa-car"></i></div></div></div>
+                <div class="stat-card" id="card-stat-modal" style="border-left:4px solid #f59e0b;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Modal Induk</p><h3 id="dash-modal" style="font-size:18px;font-weight:800;">Rp 0</h3></div><div style="width:44px;height:44px;border-radius:10px;background:#fffbeb;display:flex;align-items:center;justify-content:center;color:#f59e0b;"><i class="fa-solid fa-coins"></i></div></div></div>
+                <div class="stat-card" id="card-stat-omset" style="border-left:4px solid #8b5cf6;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Pendapatan</p><h3 id="dash-omset" style="font-size:18px;font-weight:800;">Rp 0</h3></div><div style="width:44px;height:44px;border-radius:10px;background:#f5f3ff;display:flex;align-items:center;justify-content:center;color:#8b5cf6;"><i class="fa-solid fa-wallet"></i></div></div></div>
+                <div class="stat-card" id="card-stat-profit" style="border-left:4px solid #059669;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><p style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px;">Total Profit Bersih</p><h3 id="dash-profit" style="font-size:18px;font-weight:800;color:#059669;">Rp 0</h3></div><div style="width:44px;height:44px;border-radius:10px;background:#ecfdf5;display:flex;align-items:center;justify-content:center;color:#059669;"><i class="fa-solid fa-chart-pie"></i></div></div></div>
             </div>
             <div class="section-card">
                 <div class="section-header">
@@ -462,9 +493,16 @@
 
         <!-- ===== INVENTORY ===== -->
         <section id="inventory" class="page-section">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
                 <h2 style="font-size:20px;font-weight:800;">Inventori Kendaraan</h2>
                 <button onclick="openModal('modal-add-vehicle')" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Tambah Kendaraan</button>
+            </div>
+            <div style="margin-bottom:20px;">
+                <div class="filter-tabs" style="width:fit-content;">
+                    <button class="filter-tab active" onclick="setInventoryFilter('all')" id="inv-filter-all">Semua</button>
+                    <button class="filter-tab" onclick="setInventoryFilter('tersedia')" id="inv-filter-tersedia"><i class="fa-solid fa-circle" style="color:#3b82f6;font-size:8px;margin-right:4px;"></i>Tersedia</button>
+                    <button class="filter-tab" onclick="setInventoryFilter('terjual')" id="inv-filter-terjual"><i class="fa-solid fa-circle" style="color:#059669;font-size:8px;margin-right:4px;"></i>Terjual</button>
+                </div>
             </div>
             <div id="inventory-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;"></div>
             <div id="inventory-empty" class="section-card" style="padding:60px;text-align:center;display:none;">
@@ -840,7 +878,7 @@
 
 <script>
 let vehicles=[],capitals=[],operations=[],sales=[],capitalSources=[];
-let currentVehicleId=null,photoBase64=null,currentFilter='month';
+let currentVehicleId=null,photoBase64=null,currentFilter='all';
 
 const DEFAULT_SOURCES=['Investor Utama','Mitra 1','Mitra 2','Kas Internal','Pinjaman Bank'];
 const SOURCE_COLORS=['#3b82f6','#8b5cf6','#059669','#f59e0b','#ef4444','#06b6d4','#ec4899','#84cc16'];
@@ -929,12 +967,24 @@ function previewPhoto(event){
 function clearPhoto(){photoBase64=null;document.getElementById('veh-photo-file').value='';document.getElementById('photo-preview-img').src='';document.getElementById('photo-preview-container').classList.remove('visible');}
 
 // ===== INVENTORY =====
+let currentInventoryFilter='all';
+function setInventoryFilter(f){
+    currentInventoryFilter=f;
+    ['all','tersedia','terjual'].forEach(t=>{
+        const btn=document.getElementById('inv-filter-'+t);
+        if(btn)btn.classList.toggle('active',t===f);
+    });
+    renderInventory();
+}
 function renderInventory(){
     const grid=document.getElementById('inventory-grid'),empty=document.getElementById('inventory-empty');
     grid.innerHTML='';
-    if(vehicles.length===0){grid.style.display='none';empty.style.display='block';return;}
+    let filtered=vehicles;
+    if(currentInventoryFilter==='tersedia')filtered=vehicles.filter(v=>v.status!=='terjual');
+    else if(currentInventoryFilter==='terjual')filtered=vehicles.filter(v=>v.status==='terjual');
+    if(filtered.length===0){grid.style.display='none';empty.style.display='block';return;}
     grid.style.display='grid';empty.style.display='none';
-    [...vehicles].sort((a,b)=>new Date(b.dateAdded)-new Date(a.dateAdded)).forEach(v=>{
+    [...filtered].sort((a,b)=>new Date(b.dateAdded)-new Date(a.dateAdded)).forEach(v=>{
         const fin=getVehicleFinance(v.id),isSold=v.status==='terjual';
         const badge=isSold?`<span class="badge badge-green"><i class="fa-solid fa-check" style="margin-right:4px;"></i>TERJUAL</span>`:`<span class="badge badge-blue">TERSEDIA</span>`;
         grid.insertAdjacentHTML('beforeend',`<div class="veh-card"><div style="position:relative;height:180px;background:#f1f5f9;flex-shrink:0;"><img src="${v.photo||DEFAULT_IMG}" alt="${v.name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.src='${DEFAULT_IMG}'"><div style="position:absolute;top:10px;right:10px;">${badge}</div></div><div style="padding:16px;flex:1;display:flex;flex-direction:column;"><h3 style="font-weight:700;font-size:16px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${v.name}">${v.name}</h3><p style="font-size:12px;color:#64748b;margin-bottom:10px;"><i class="fa-solid fa-calendar" style="margin-right:4px;"></i>Masuk: ${formatDate(v.dateAdded)}</p><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"><span style="font-size:11px;background:#f1f5f9;color:#475569;padding:3px 8px;border-radius:4px;border:1px solid #e2e8f0;">${v.brand}</span><span style="font-size:11px;background:#f1f5f9;color:#475569;padding:3px 8px;border-radius:4px;border:1px solid #e2e8f0;">${v.year}</span><span style="font-size:11px;background:#f1f5f9;color:#475569;padding:3px 8px;border-radius:4px;border:1px solid #e2e8f0;" class="mono">${v.plate}</span></div><div style="margin-top:auto;border-top:1px solid #f1f5f9;padding-top:12px;"><p style="font-size:11px;color:#64748b;margin-bottom:2px;">Total Modal Induk</p><p style="font-weight:800;color:#dc2626;font-size:15px;margin-bottom:10px;">${formatRp(fin.totalCost)}</p><div style="display:flex;gap:8px;"><button onclick="openVehicleFinance('${v.id}')" class="btn btn-primary btn-sm" style="flex:1;justify-content:center;"><i class="fa-solid fa-pen-to-square"></i> Rincian</button><button onclick="openDeleteModal('${v.id}','${v.name.replace(/'/g,"&#39;")}')" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;flex-shrink:0;"><i class="fa-solid fa-trash-can"></i></button></div></div></div></div>`);
@@ -1401,19 +1451,42 @@ document.getElementById('form-sell-vehicle').addEventListener('submit',async fun
     setBtnLoading('sell-submit-btn',false);
 });
 
+// ===== STAT CARD CUSTOMIZER =====
+function toggleStatCustomizer(){
+    const el=document.getElementById('stat-customizer');
+    const isOpen=el.style.display==='block';
+    el.style.display=isOpen?'none':'block';
+    const btn=document.getElementById('btn-stat-customize');
+    btn.style.background=isOpen?'white':'#eff6ff';
+    btn.style.color=isOpen?'#64748b':'#1d4ed8';
+    btn.style.borderColor=isOpen?'#e2e8f0':'#bfdbfe';
+}
+function applyStatVisibility(){
+    const cards=['unit','modal','omset','profit'];
+    cards.forEach(k=>{
+        const chk=document.getElementById('chk-stat-'+k);
+        const card=document.getElementById('card-stat-'+k);
+        if(card)card.style.display=chk&&chk.checked?'':'none';
+    });
+    // update grid col count based on visible cards
+    const visCount=cards.filter(k=>document.getElementById('card-stat-'+k)?.style.display!=='none').length;
+    const grid=document.getElementById('stat-cards-grid');
+    if(grid)grid.style.gridTemplateColumns=`repeat(${Math.max(1,visCount)},1fr)`;
+}
+
 // ===== DASHBOARD =====
 function setFilter(type){
     currentFilter=type;
-    document.querySelectorAll('.filter-tab').forEach((b,i)=>b.classList.toggle('active',['today','month','year','custom'][i]===type));
+    document.querySelectorAll('#dash-filter-tabs .filter-tab').forEach(b=>b.classList.toggle('active',b.dataset.f===type));
     document.getElementById('custom-range').style.display=type==='custom'?'flex':'none';
     if(type!=='custom')renderDashboard();
 }
 function getFilterDates(){
     const now=new Date();let start,end=new Date();end.setHours(23,59,59,999);
-    if(currentFilter==='today')start=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-    else if(currentFilter==='month')start=new Date(now.getFullYear(),now.getMonth(),1);
-    else if(currentFilter==='year')start=new Date(now.getFullYear(),0,1);
-    else{const s=document.getElementById('filter-start').value,e=document.getElementById('filter-end').value;start=s?new Date(s):new Date(0);if(e){end=new Date(e);end.setHours(23,59,59,999);}}
+    if(currentFilter==='all'){start=new Date(0);}
+    else if(currentFilter==='month'){start=new Date(now.getFullYear(),now.getMonth(),1);}
+    else if(currentFilter==='6month'){start=new Date(now.getFullYear(),now.getMonth()-5,1);}
+    else{const m=document.getElementById('filter-month').value;if(m){const[yr,mo]=m.split('-').map(Number);start=new Date(yr,mo-1,1);end=new Date(yr,mo,0,23,59,59,999);}else{start=new Date(0);}}
     return{start,end};
 }
 
