@@ -218,6 +218,27 @@
         .section-title{font-size:15px;font-weight:700;color:var(--text)}
         #photo-preview-container{display:none} #photo-preview-container.visible{display:block}
 
+        /* ===== STICKY FIRST COLUMN (mobile only) ===== */
+        @media(max-width:768px){
+            #report-table th:first-child,
+            #report-table td:first-child {
+                position: sticky;
+                left: 0;
+                z-index: 2;
+                background: white;
+                box-shadow: 2px 0 6px rgba(0,0,0,0.08);
+                min-width: 130px;
+                max-width: 150px;
+            }
+            #report-table thead th:first-child {
+                background: #f8fafc;
+                z-index: 3;
+            }
+            #report-table tr:hover td:first-child {
+                background: #fafbfc;
+            }
+        }
+
         /* ===== PIN SCREEN ===== */
         #pin-screen{position:fixed;inset:0;background:var(--navy);z-index:200;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0;}
         #pin-screen.hidden{display:none;}
